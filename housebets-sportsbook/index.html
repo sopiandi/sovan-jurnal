@@ -233,6 +233,14 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .placebar{margin-top:12px}
 .placebar .tot{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px}
 .placebar .tot b{color:var(--text);font-variant-numeric:tabular-nums}
+.placebar .bal-line{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px}
+.placebar .bal-line b{color:var(--text);font-variant-numeric:tabular-nums}
+.placebar .bal-line .bal-val{color:var(--mint);font-variant-numeric:tabular-nums}
+.placebar .bal-line.after{border-top:1px dashed var(--border);padding-top:8px}
+.bal-box{margin-bottom:10px}
+.bal-box .bal-line{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+.bal-box .bal-line b{color:var(--text);font-variant-numeric:tabular-nums}
+.bal-box .bal-line .bal-val{color:var(--mint);font-variant-numeric:tabular-nums}
 .placebtn{width:100%;background:var(--mint);color:var(--mint-ink);font-weight:800;font-size:15px;border-radius:11px;padding:13px}
 .placebtn:disabled{opacity:.45;cursor:not-allowed}
 .placebtn.busy{background:var(--card3);color:var(--muted)}
@@ -580,6 +588,8 @@ let myBets = store.get("mybets", null) || {
   ]
 };
 let slip = [];            // {key, matchId, match, comp, market, sel, odds, stake, oldOdds, suspended}
+let balance = store.get("balance", 1250); // sample demo balance in USDT; the seeded open bet (b1, $20) was placed before this session, so it is NOT deducted again at load
+if(typeof balance!=="number" || isNaN(balance) || balance<0) balance=1250;
 let slipMsg = null;       // {kind:'ok'|'err', msg} — persists across re-renders
 let betTab = "open";
 let liveFilter = {sport:"All", comp:"All"};
@@ -595,6 +605,11 @@ let startTs = Date.now();
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = n => (Math.round(n*100)/100).toFixed(2);
+const fmtC = n => { // thousands-separated, for the balance display: 1,250.00
+  const neg = n < 0, s = (Math.round(Math.abs(n)*100)/100).toFixed(2);
+  const [i, d] = s.split(".");
+  return (neg ? "-" : "") + i.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + "." + d;
+};
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(msg, kind){
   const t=document.createElement("div"); t.className="toast"+(kind?" "+kind:""); t.textContent=msg;
@@ -603,7 +618,7 @@ function toast(msg, kind){
 function go(h){ location.hash=h; }
 function goMatch(id, tab){ window._pendingMatchTab = tab||null; go('#/match/'+id); }
 function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); }
-function saveAll(){ store.set("follows", follows); store.set("mybets", myBets); }
+function saveAll(){ store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); }
 
 /* ================= Odds engine ================= */
 function marketKey(matchId, label){ return matchId+"|"+label; }
@@ -801,6 +816,15 @@ function slipTotals(){
   slip.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; ret+=st*s.odds; });
   return {stake, ret};
 }
+function balanceHTML(){
+  // Balance + Balance after, for the slip. Uses its own classes (never ".tot")
+  // so the per-placebar totals indexing in setStake keeps working.
+  const t=slipTotals();
+  return `<div class="bal-box">
+    <div class="bal-line"><span>Balance</span><b class="bal-val">${fmtC(balance)} USDT</b></div>
+    <div class="bal-line"><span>Balance after</span><b class="bal-after-val">${fmtC(balance - t.stake)} USDT</b></div>
+  </div>`;
+}
 function acceptOdds(key){
   const s=slip.find(x=>x.key===key); if(!s) return;
   s.changed=false; s.oldOdds=null; slipMsg=null; renderSlip(); toast("Odds accepted: "+s.sel+" @ "+fmt(s.odds), "ok");
@@ -832,6 +856,9 @@ function setStake(key, val, el){
     if(bs[0]) bs[0].textContent=fmt(t.stake)+" USDT";
     if(bs[1]) bs[1].textContent=fmt(t.ret)+" USDT";
   });
+  // Balance itself never changes while typing, but Balance after follows the stake.
+  $$(".bal-val").forEach(el=>el.textContent=fmtC(balance)+" USDT");
+  $$(".bal-after-val").forEach(el=>el.textContent=fmtC(balance - t.stake)+" USDT");
   const sb=$("#slipbarRet"); if(sb) sb.textContent="Potential "+fmt(t.ret)+" USDT";
 }
 function setChip(key, val){
@@ -851,6 +878,8 @@ function placeBets(){
   if(susp){ showSlipMsg("err","Bet failed — “"+susp.sel+"” ("+susp.market+") is suspended. Remove it or wait for the market to reopen."); toast("❌ Bet failed — selection suspended", "err"); return; }
   const chg = slip.find(s=>s.changed);
   if(chg){ showSlipMsg("err","Odds changed — accept the new odds for “"+chg.sel+"” ("+fmt(chg.oldOdds)+" → "+fmt(chg.odds)+") before placing."); toast("⚠️ Odds changed — accept first", "err"); return; }
+  const tt=slipTotals();
+  if(tt.stake > balance){ showSlipMsg("err","Bet failed — insufficient balance. Your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("❌ Bet failed — insufficient balance", "err"); return; }
   if(failNextBet){ failNextBet=false; showSlipMsg("err","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); renderSlip(); return; }
   placing=true; renderSlip();
   setTimeout(()=>{
@@ -859,6 +888,7 @@ function placeBets(){
       myBets.open.unshift({id:"b"+Date.now()+Math.floor(Math.random()*999), sel:s.sel, market:s.market, match:s.match, comp:s.comp, odds:s.odds, stake:parseFloat(s.stake), placed:"Just now", cashout: Math.round(parseFloat(s.stake)*s.odds*0.82*100)/100, live:true});
     });
     const n=slip.length, t=slipTotals();
+    balance = Math.round((balance - t.stake)*100)/100; // deduct the placed stake; persists via saveAll
     slip=[]; saveAll();
     showSlipMsg("ok","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(t.stake)+" USDT, potential return "+fmt(t.ret)+" USDT. See it in My bets → Open.");
     toast("✅ Bet placed — good luck!", "ok");
@@ -870,6 +900,7 @@ function cashOut(id){
   const b=myBets.open.find(x=>x.id===id); if(!b) return;
   myBets.open=myBets.open.filter(x=>x.id!==id);
   myBets.settled.unshift({id:b.id, sel:b.sel, market:b.market, match:b.match, comp:b.comp, odds:b.odds, stake:b.stake, result:"cashed", ret:b.cashout, placed:b.placed});
+  balance = Math.round((balance + b.cashout)*100)/100; // cash-out returns to the balance
   saveAll(); renderSlip(); renderPanel();
   toast("💰 Cashed out "+fmt(b.cashout)+" USDT — "+b.sel, "ok");
   if(location.hash==="#/bets") render();
@@ -882,16 +913,17 @@ function showSlipMsg(kind,msg){
   });
 }
 function resetDemo(){
-  localStorage.removeItem("hb-proto-follows"); localStorage.removeItem("hb-proto-mybets");
+  localStorage.removeItem("hb-proto-follows"); localStorage.removeItem("hb-proto-mybets"); localStorage.removeItem("hb-proto-balance");
   follows={comps:["Premier League"],teams:["Arsenal"]};
   myBets=store.get("mybets",null)||myBets;
+  balance=1250;
   location.reload();
 }
 
 /* ================= Shared render: slip (panel + sheet + bets page) ================= */
 function slipHTML(){
   if(!slip.length){
-    return `<div class="slip-empty"><div class="big">🧾</div>Your bet slip is empty.<br>Tap any odd to add a single.<br><span class="small">Singles only — no multis, no bet builder.</span></div>
+    return `${balanceHTML()}<div class="slip-empty"><div class="big">🧾</div>Your bet slip is empty.<br>Tap any odd to add a single.<br><span class="small">Singles only — no multis, no bet builder.</span></div>
     ${slipMsg?`<div class="slip-msg slip-${slipMsg.kind} show">${esc(slipMsg.msg)}</div>`:""}
     ${previewBoxHTML()}`;
   }
@@ -912,8 +944,10 @@ function slipHTML(){
       <div class="ret"><span>Potential return</span><b>${fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
     </div>`).join("")
   + `<div class="placebar">
+      <div class="bal-line"><span>Balance</span><b class="bal-val">${fmtC(balance)} USDT</b></div>
       <div class="tot"><span>Total stake</span><b>${fmt(t.stake)} USDT</b></div>
       <div class="tot"><span>Potential return</span><b>${fmt(t.ret)} USDT</b></div>
+      <div class="bal-line after"><span>Balance after</span><b class="bal-after-val">${fmtC(balance - t.stake)} USDT</b></div>
       ${slip.some(s=>s.changed)?`<button class="placebtn" style="background:var(--amber);color:#241a02;margin-bottom:8px" onclick="acceptAllOdds()">Accept all new odds</button>`:""}
       <button class="placebtn ${placing?"busy":""}" ${placing?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
       <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsg?esc(slipMsg.msg):""}</div>
