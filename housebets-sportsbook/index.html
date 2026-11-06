@@ -166,6 +166,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .mtab{flex:0 0 auto;padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
 .mtab.on{background:var(--mint);color:var(--mint-ink);border-color:var(--mint)}
 .mtab .susp{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;margin-left:4px}
+.mtab .cnt{opacity:.65;font-weight:800}
 .mtab.susp-tab{border-color:rgba(240,68,82,.5)}
 .market{margin-bottom:14px}
 .market h3{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px}
@@ -219,6 +220,11 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .slip-item .stake input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--text);font-size:15px;font-weight:700;text-align:right;padding:6px 4px;font-variant-numeric:tabular-nums}
 .slip-item .ret{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;color:var(--muted)}
 .slip-item .ret b{color:var(--text);font-variant-numeric:tabular-nums}
+.slip-item .chips{display:flex;gap:6px;margin-top:8px}
+.slip-item .chip{flex:1;background:var(--odd-bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 0;font-size:12px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
+.slip-item .chip:hover{border-color:var(--cyan-dim)}
+.slip-item .chip.on{background:var(--cyan);border-color:var(--cyan);color:#04222a}
+.slip-item .chip:disabled{opacity:.4;cursor:default}
 .slip-item .rm{color:var(--muted);font-size:16px;padding:2px 6px}
 .slip-item .rm:hover{color:var(--red)}
 .odds-changed{display:flex;align-items:center;gap:8px;background:var(--amber-bg);border:1px solid rgba(245,181,68,.4);border-radius:8px;padding:7px 10px;margin-top:9px;font-size:12px;font-weight:600;color:var(--amber)}
@@ -809,6 +815,15 @@ function setStake(key, val, el){
   const t=slipTotals();
   $$(`.slip-item[data-slip-key="${CSS.escape(key)}"]`).forEach(item=>{
     const ret=item.querySelector(".ret b"); if(ret) ret.textContent=fmt((parseFloat(s.stake)||0)*s.odds)+" USDT";
+    // Typing a custom stake must clear/update the quick-chip mark in place
+    // (no re-render here — the input must keep focus while typing).
+    const st=parseFloat(s.stake);
+    item.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on", st===+c.dataset.v));
+    // Keep the stake shown the same on every surface: sync the input value in
+    // the OTHER copies of this item, but never touch the input being typed in
+    // (rewriting its value would yank the caret to the end).
+    const inp=item.querySelector("input");
+    if(inp && inp!==el) inp.value=s.stake;
   });
   // Update totals per placebar (panel, bets page, sheet each have their own) —
   // indexing all ".tot b" across the document mixes them up when two are visible.
@@ -818,6 +833,13 @@ function setStake(key, val, el){
     if(bs[1]) bs[1].textContent=fmt(t.ret)+" USDT";
   });
   const sb=$("#slipbarRet"); if(sb) sb.textContent="Potential "+fmt(t.ret)+" USDT";
+}
+function setChip(key, val){
+  const s=slip.find(x=>x.key===key); if(!s || s.suspended) return;
+  s.stake=String(val);
+  // A chip click is not typing: a full re-render is safe here and keeps the
+  // input value, return, totals and chip marks in sync across panel/page/sheet.
+  renderSlip();
 }
 function clearSlipMsg(){ slipMsg=null; }
 function placeBets(){
@@ -884,6 +906,7 @@ function slipHTML(){
         <span class="odds-pill">@ ${fmt(s.odds)}</span>
         <label class="stake"><span>USDT</span><input type="text" inputmode="decimal" placeholder="Stake" value="${esc(s.stake)}" oninput="setStake('${s.key}', this.value, this)" ${s.suspended?"disabled":""}></label>
       </div>
+      <div class="chips">${[1,10,50,100].map(v=>`<button class="chip ${+s.stake===v?"on":""}" data-v="${v}" ${s.suspended?"disabled":""} onclick="setChip('${s.key}',${v})">${v}</button>`).join("")}</div>
       ${s.changed?`<div class="odds-changed">⚠️ Odds changed ${fmt(s.oldOdds)} → ${fmt(s.odds)}<button onclick="acceptOdds('${s.key}')">Accept</button></div>`:""}
       ${s.suspended?`<div class="susp-note">⛔ Suspended — can't be placed right now</div>`:""}
       <div class="ret"><span>Potential return</span><b>${fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
@@ -1213,7 +1236,7 @@ function pageMatch(id){
   <div class="mtabs">
     ${groups.map(g=>{
       const susp = m._markets[g].every(mk=>mk.suspended || isSuspended(m,mk.label));
-      return `<button class="mtab ${matchTab===g?"on":""} ${susp?"susp-tab":""}" onclick="matchTab='${esc(g)}';render()">${esc(g)}${susp?'<span class="susp">Suspended</span>':""}</button>`;
+      return `<button class="mtab ${matchTab===g?"on":""} ${susp?"susp-tab":""}" onclick="matchTab='${esc(g)}';render()">${esc(g)} <span class="cnt">(${m._markets[g].length})</span>${susp?'<span class="susp">Suspended</span>':""}</button>`;
     }).join("")}
   </div>
   ${mkts.map(mk=>{
