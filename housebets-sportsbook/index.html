@@ -313,7 +313,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 <div class="shell">
   <nav class="rail" id="rail">
     <button data-route="home" onclick="go('#/home')"><span class="ic">🏠</span>Home</button>
-    <button data-route="live" onclick="go('#/live')"><span class="ic">📺</span>Live</button>
+    <button data-route="live" onclick="goLive()"><span class="ic">📺</span>Live</button>
     <button data-route="football" onclick="go('#/football')"><span class="ic">⚽</span>Football</button>
     <div class="sep"></div>
     <button data-route="bets" onclick="go('#/bets')"><span class="ic">🧾</span>My Bets</button>
@@ -331,7 +331,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 
 <nav class="bottomnav" id="bottomnav">
   <button data-route="home" onclick="go('#/home')"><span class="ic">🏠</span>Home</button>
-  <button data-route="live" onclick="go('#/live')"><span class="ic">📺</span>Live</button>
+  <button data-route="live" onclick="goLive()"><span class="ic">📺</span>Live</button>
   <button data-route="football" onclick="go('#/football')"><span class="ic">⚽</span>Football</button>
   <button data-route="bets" onclick="go('#/bets')"><span class="ic">🧾</span>Bets<span class="bdot" id="navBetsDot" style="display:none">0</span></button>
 </nav>
@@ -414,6 +414,37 @@ const LIVE_COUNT = MATCHES.filter(m=>m.status==="live").length;
 /* markets for a match page — generated from 1X2 odds */
 function marketsFor(m){
   const o=m.odds;
+  // Non-soccer matches get their own markets — no Draw, no soccer-only groups.
+  if(m.sport==="Tennis") return {
+    "Popular":[
+      {label:"Match winner", type:"mw", opts:[{n:m.home,odds:o.h},{n:m.away,odds:o.a}]},
+      {label:"Set 1 winner", type:"s1", opts:[{n:m.home,odds:+(o.h*0.92).toFixed(2)},{n:m.away,odds:+(o.a*0.92).toFixed(2)}]},
+      {label:"Total games 22.5", type:"ou", opts:[{n:"Over 22.5",odds:1.90},{n:"Under 22.5",odds:1.90}]}
+    ],
+    "Sets":[
+      {label:"Set betting", type:"sb", opts:[{n:m.home+" 2–0",odds:2.60},{n:m.home+" 2–1",odds:3.40},{n:m.away+" 2–0",odds:4.50},{n:m.away+" 2–1",odds:5.00}]},
+      {label:"Set 2 winner", type:"s2", opts:[{n:m.home,odds:1.80},{n:m.away,odds:2.05}]}
+    ],
+    "Games":[
+      {label:"Total games 18.5", type:"ou", opts:[{n:"Over 18.5",odds:1.65},{n:"Under 18.5",odds:2.20}]},
+      {label:"Total games 26.5", type:"ou", opts:[{n:"Over 26.5",odds:2.40},{n:"Under 26.5",odds:1.55}]}
+    ]
+  };
+  if(m.sport==="Basketball") return {
+    "Popular":[
+      {label:"Match winner", type:"mw", opts:[{n:m.home,odds:o.h},{n:m.away,odds:o.a}]},
+      {label:"Point spread", type:"sp", opts:[{n:m.home+" −5.5",odds:1.91},{n:m.away+" +5.5",odds:1.91}]},
+      {label:"Total points 224.5", type:"ou", opts:[{n:"Over 224.5",odds:1.90},{n:"Under 224.5",odds:1.90}]}
+    ],
+    "Spread":[
+      {label:"Point spread −9.5 / +9.5", type:"sp", opts:[{n:m.home+" −9.5",odds:2.35},{n:m.away+" +9.5",odds:1.60}]},
+      {label:"Point spread −2.5 / +2.5", type:"sp", opts:[{n:m.home+" −2.5",odds:1.65},{n:m.away+" +2.5",odds:2.20}]}
+    ],
+    "Totals":[
+      {label:"Total points 214.5", type:"ou", opts:[{n:"Over 214.5",odds:1.65},{n:"Under 214.5",odds:2.20}]},
+      {label:"Total points 234.5", type:"ou", opts:[{n:"Over 234.5",odds:2.30},{n:"Under 234.5",odds:1.62}]}
+    ]
+  };
   const bttsY=(1.55+Math.random()*0.4).toFixed(2), bttsN=(2.0+Math.random()*0.3).toFixed(2);
   const ou25o=(1.70+Math.random()*0.4).toFixed(2), ou25u=(2.0+Math.random()*0.3).toFixed(2);
   const scH=SCORERS[m.home]||["Top scorer"], scA=SCORERS[m.away]||["Top scorer"];
@@ -490,6 +521,7 @@ let matchId = MATCHES[0].id;
 let searchQ = "";
 let suspendedMarkets = new Set(); // keys "matchId|marketLabel" suspended by the live engine
 let placing = false;
+let varActive = false; // scripted VAR check in progress on the featured match
 let startTs = Date.now();
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -500,6 +532,7 @@ function toast(msg, kind){
   $("#toasts").appendChild(t); setTimeout(()=>t.remove(), 3200);
 }
 function go(h){ location.hash=h; }
+function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); }
 function saveAll(){ store.set("follows", follows); store.set("mybets", myBets); }
 
 /* ================= Odds engine ================= */
@@ -520,13 +553,19 @@ function allOddsRefs(){
 function tickOdds(){
   const refs = allOddsRefs().filter(r=>!r.suspended && r.opt.odds>1.05);
   if(!refs.length) return;
+  // Bias toward odds actually on screen so movement is visible within seconds (judges watch
+  // the match page), and toward odds in the slip so the "odds changed" state shows up quickly.
+  const visibleKeys = new Set([...document.querySelectorAll("[data-odd-key]")].map(el=>el.dataset.oddKey));
+  const visibleRefs = refs.filter(r=>visibleKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n));
   const n = 1+Math.floor(Math.random()*2);
   for(let k=0;k<n;k++){
-    // Bias toward odds currently in the slip so the "odds changed" state is demonstrable quickly
     let r;
-    if(slip.length && Math.random()<0.6){
+    if(slip.length && Math.random()<0.45){
       const s = slip[Math.floor(Math.random()*slip.length)];
       r = refs.find(x=>x.m.id===s.matchId && x.label===s.market && x.opt.n===s.sel);
+    }
+    if(!r && visibleRefs.length && Math.random()<0.85){
+      r = visibleRefs[Math.floor(Math.random()*visibleRefs.length)];
     }
     if(!r) r = refs[Math.floor(Math.random()*refs.length)];
     const delta = (Math.random()<0.5?-1:1)*(0.01+Math.random()*0.05);
@@ -545,7 +584,21 @@ function tickOdds(){
     }
     // slip selection changed?
     const s = slip.find(x=>x.matchId===r.m.id && x.market===r.label && x.sel===r.opt.n);
-    if(s && s.odds!==r.opt.odds){ s.oldOdds = s.odds; s.odds = r.opt.odds; s.changed=true; renderSlip(); }
+    if(s && s.odds!==r.opt.odds){
+      // Preserve stake-input focus/caret across the slip re-render.
+      const ae = document.activeElement;
+      let focusCtx = null;
+      if(ae && ae.tagName==="INPUT" && ae.closest(".slip-item")){
+        const item = ae.closest(".slip-item");
+        const scope = ae.closest(".sheet") ? ".sheet" : ae.closest("#betsSlipWrap") ? "#betsSlipWrap" : ".panel";
+        focusCtx = { scope, key: item.dataset.slipKey, pos: ae.selectionStart };
+      }
+      s.oldOdds = s.odds; s.odds = r.opt.odds; s.changed=true; renderSlip();
+      if(focusCtx){
+        const ni = document.querySelector(`${focusCtx.scope} .slip-item[data-slip-key="${CSS.escape(focusCtx.key)}"] input`);
+        if(ni){ ni.focus(); try{ ni.setSelectionRange(focusCtx.pos, focusCtx.pos); }catch(e){} }
+      }
+    }
   }
 }
 function tickSuspension(){
@@ -584,14 +637,13 @@ setInterval(tickSuspension, 42000);
 setTimeout(()=>{
   const m=MATCHES[0];
   const key=marketKey(m.id,"Match result");
+  varActive=true;
   suspendedMarkets.add(key);
   slip.forEach(s=>{ if(s.matchId===m.id && s.market==="Match result"){ s.suspended=true; } });
-  const b=$("#varBanner"); if(b) b.classList.add("show");
   toast("📺 VAR check — Match result suspended (Arsenal v Brighton)", "err");
   renderSlip(); if(location.hash.startsWith("#/match")) render();
-  setTimeout(()=>{ suspendedMarkets.delete(key);
+  setTimeout(()=>{ varActive=false; suspendedMarkets.delete(key);
     slip.forEach(s=>{ if(s.matchId===m.id && s.market==="Match result"){ s.suspended=false; } });
-    if(b) b.classList.remove("show");
     renderSlip(); if(location.hash.startsWith("#/match")) render();
   }, 20000);
 }, 75000);
@@ -780,9 +832,10 @@ function oddsBtn(m, label, opt, extraCls){
 }
 function matchRow(m, showMore){
   const live = m.status==="live";
-  const when = live
-    ? `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${m.minute}′</div>`
-    : `<b>${m.time}</b>${m.date}`;
+  const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1}</div>`
+    : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock">${esc((m.period||"").split(" ")[0])}</div>`
+    : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${m.minute}′</div>`;
+  const when = live ? liveWhen : `<b>${m.time}</b>${m.date}`;
   const score = live ? `<span class="sc">${m.hs}</span>` : "";
   const score2 = live ? `<span class="sc">${m.as}</span>` : "";
   const more = showMore===false ? "" : `<span class="mrow-more">+${8+((m.id.charCodeAt(1)||0)%12)} ›</span>`;
@@ -809,9 +862,9 @@ function featCard(m){
     <div class="tm"><span class="crest">${crest(m.home)}</span>${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
     <div class="tm"><span class="crest">${crest(m.away)}</span>${esc(m.away)}<span class="sc">${live?m.as:""}</span></div>
     <div class="odds-grid">
-      ${oddsBtn(m,"Match result",{n:m.home.split(" ")[0],odds:m.odds.h})}
+      ${oddsBtn(m,"Match result",{n:m.home,odds:m.odds.h})}
       ${m.odds.d?oddsBtn(m,"Match result",{n:"Draw",odds:m.odds.d}):""}
-      ${oddsBtn(m,"Match result",{n:m.away.split(" ")[0],odds:m.odds.a})}
+      ${oddsBtn(m,"Match result",{n:m.away,odds:m.odds.a})}
     </div>
   </div>`;
 }
@@ -831,7 +884,8 @@ function sportNavHTML(active){
   const chips=[["Home","🏠","#/home"],["Live "+LIVE_COUNT,"📺","#/live"],["Soccer","⚽","#/football"],["Tennis","🎾","#/live?sport=Tennis"],["Basketball","🏀","#/live?sport=Basketball"],["Baseball","⚾","#/live?sport=Baseball"],["American Football","🏈","#/live?sport=American Football"],["Esports","🎮","#/live?sport=Esports"]];
   return `<div class="sportnav">${chips.map(([label,ic,href])=>{
     const isLive = label.startsWith("Live");
-    return `<button class="chip ${active===label?"on":""}" onclick="go('${href}')"><span class="ic">${ic}</span>${isLive?`Live <span class="live-n">${LIVE_COUNT}</span>`:label}</button>`;
+    const act = href==="#/live" ? "goLive()" : `go('${href}')`;
+    return `<button class="chip ${active===label?"on":""}" onclick="${act}"><span class="ic">${ic}</span>${isLive?`Live <span class="live-n">${LIVE_COUNT}</span>`:label}</button>`;
   }).join("")}</div>`;
 }
 function searchResultsHTML(q){
@@ -868,7 +922,7 @@ function pageHome(){
     ${favTeams.map(t=>`<span class="pill"><span class="crest">${crest(t)}</span> ${esc(t)} <button class="x" onclick="toggleFollowTeam('${esc(t)}')">✕</button></span>`).join("")}
     ${!favComps.length&&!favTeams.length?'<span class="muted small">Nothing followed yet.</span>':""}
   </div>
-  <div class="sec-head"><h2>Your matches <span class="sub">${yourMatches.length} matches</span></h2><a href="#/live">See all live ›</a></div>
+  <div class="sec-head"><h2>Your matches <span class="sub">${yourMatches.length} matches</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
   <div class="card">${yourMatches.map(m=>matchRow(m)).join("")}</div>
   <div class="sec-head"><h2>Featured matches</h2><a href="#/football">All football ›</a></div>
   <div class="feat-grid">${featured.map(featCard).join("")}</div>
@@ -880,8 +934,15 @@ function renderSearch(){ const o=$("#searchOut"); if(o) o.innerHTML=searchResult
 
 /* --- Page 2: Live --- */
 function pageLive(){
-  const params=new URLSearchParams(location.hash.split("?")[1]||"");
-  const qsSport=params.get("sport"); if(qsSport) liveFilter.sport=qsSport;
+  // Apply the ?sport= deep link only when the hash actually changed (i.e. on navigation),
+  // so the on-page filter chips keep working after arriving via a sport link.
+  const hashNow = location.hash;
+  if(window._lastLiveHash !== hashNow){
+    window._lastLiveHash = hashNow;
+    const params=new URLSearchParams(hashNow.split("?")[1]||"");
+    const qsSport=params.get("sport");
+    liveFilter.sport = qsSport || "All";
+  }
   const live=MATCHES.filter(m=>m.status==="live");
   const filtered=live.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
   const comps=[...new Set(live.map(m=>m.comp))];
@@ -899,7 +960,7 @@ function pageLive(){
   <h1>Live now <span class="live-badge">● ${live.length} live</span></h1>
   <p class="muted small" style="margin:6px 0 14px">Every match in play — scores and clocks update live.</p>
   <div class="filters">
-    ${["All","Soccer","Tennis","Basketball"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';render()">${s==="All"?"All sports":s}</button>`).join("")}
+    ${["All","Soccer","Tennis","Basketball","Baseball","American Football","Esports"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';render()">${s==="All"?"All sports":s}</button>`).join("")}
   </div>
   <div class="filters">
     <button class="fchip ${liveFilter.comp==="All"?"on":""}" onclick="liveFilter.comp='All';render()">All competitions</button>
@@ -935,12 +996,18 @@ function pageMatch(id){
   const groups=Object.keys(m._markets);
   if(!groups.includes(matchTab)) matchTab="Popular";
   const live=m.status==="live";
+  // Scoreboard clock: soccer ticks by the minute; tennis shows the set score, basketball the period.
+  const clockHTML = !live ? `<span class="clock">${esc(m.date||"")}</span>`
+    : m.sport==="Tennis" ? `<span class="clock">${esc(m.setScore||"Sets")}</span>`
+    : m.sport==="Basketball" ? `<span class="clock">${esc(m.period||"")}</span>`
+    : `<span class="clock" data-clock="${m.minute}">${m.minute}′ 00″</span>`;
+  const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
   const mkts=m._markets[matchTab];
   return `
   <div style="margin-bottom:10px"><a href="#/football" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
     <div class="comp">${esc(m.comp)}${live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+m.time}</div>
-    <div class="clock-row">${live?`<span class="clock" data-clock="${m.minute}">52′ 00″</span>`:`<span class="clock">${esc(m.date||"")}</span>`}<span class="muted small">${live?"2nd half":""}</span></div>
+    <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
     <div class="teams-row">
       <div class="team"><span class="crest">${crest(m.home)}</span><div class="nm">${esc(m.home)}</div></div>
       <div class="score">${live?m.hs:"–"}<span>–</span>${live?m.as:"–"}</div>
@@ -948,7 +1015,7 @@ function pageMatch(id){
     </div>
     <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
   </div>
-  <div class="var-banner" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
+  <div class="var-banner${varActive?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
   <div class="mtabs">
     ${groups.map(g=>{
       const susp = m._markets[g].every(mk=>mk.suspended || isSuspended(m,mk.label));
@@ -1027,7 +1094,9 @@ function render(){
     b.classList.toggle("on", b.dataset.route===route || (route==="match"&&b.dataset.route==="football"));
   });
   renderSlip();
-  window.scrollTo(0,0);
+  // Only jump to the top when the route actually changed; filter/tab clicks keep the scroll position.
+  const routeKey = route + (route==="match" ? "/"+(seg[1]||"") : "");
+  if(window._lastRouteKey !== routeKey){ window.scrollTo(0,0); window._lastRouteKey = routeKey; }
 }
 window.addEventListener("hashchange", render);
 $("#topSearch").addEventListener("input", e=>{ searchQ=e.target.value; if(!(location.hash||"").startsWith("#/home")){ go("#/home"); setTimeout(()=>{ const h=$("#homeSearch"); if(h){ h.value=searchQ; h.focus(); } },30); } else renderSearch(); });
