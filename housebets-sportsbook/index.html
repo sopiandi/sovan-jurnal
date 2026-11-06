@@ -132,11 +132,16 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .mrow .teams .tm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mrow .teams .tm .sc{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;padding-left:8px}
 .mrow .teams .tm+.tm{margin-top:3px}
-/* team monogram: 2-3 letter code in a small coloured circle (no real club logos — sample data) */
+/* team monogram: 2-3 letter code in a small coloured circle (tennis players + logo fallback) */
 .mono{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;flex:0 0 auto;vertical-align:middle}
 .feat .mono{width:24px;height:24px;font-size:10px}
 .pill .mono{width:20px;height:20px;font-size:9px}
 .sr-item .mono{width:20px;height:20px;font-size:9px}
+/* real club/team logos: white circular chip so dark crests stay visible on the dark theme */
+.crest-img{width:22px;height:22px;border-radius:50%;background:#fff;padding:2px;object-fit:contain;flex:0 0 auto;vertical-align:middle}
+.feat .crest-img{width:24px;height:24px}
+.pill .crest-img{width:20px;height:20px}
+.sr-item .crest-img{width:20px;height:20px}
 .mrow .modds{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,64px);gap:6px}
 .mrow .mrow-more{color:var(--muted);font-size:12px;white-space:nowrap}
 @media(max-width:560px){
@@ -183,6 +188,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .scoreboard .team .nm{overflow-wrap:break-word}
 .scoreboard .score{flex:0 0 auto}
 .scoreboard .team .mono{width:52px;height:52px;font-size:15px;margin-bottom:6px}
+.scoreboard .team .crest-img{width:52px;height:52px;padding:4px;margin-bottom:6px}
 .scoreboard .team .nm{font-weight:700;font-size:16px}
 .scoreboard .score{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
 .scoreboard .score span{color:var(--muted);font-weight:600;margin:0 4px}
@@ -372,17 +378,32 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 <script>
 "use strict";
 /* ================= Sample data (demo only — no real money) ================= */
+/* Real club/team logos (Wikimedia Commons, served locally from logos/ — user approved).
+   Tennis players are people, not teams — they keep monograms (brief: no real players). */
+const LOGO = {Arsenal:"arsenal.svg","Brighton & Hove Albion":"brighton.svg",Brighton:"brighton.svg",Liverpool:"liverpool.png","Manchester United":"man-utd.svg",Inter:"inter.svg",Chelsea:"chelsea.svg","Real Madrid":"real-madrid.svg","Bayern Munich":"bayern.svg",Tottenham:"tottenham.svg","Manchester City":"man-city.svg",Napoli:"napoli.svg",Milan:"milan.svg",Barcelona:"barcelona.svg",PSG:"psg.svg",Dortmund:"dortmund.svg",Sevilla:"sevilla.png","Atlético Madrid":"atletico.svg",Valencia:"valencia.svg","Real Sociedad":"real-sociedad.svg",Roma:"roma.svg",Lazio:"lazio.svg",Leverkusen:"leverkusen.svg",Leipzig:"leipzig.svg",Frankfurt:"frankfurt.svg",Wolfsburg:"wolfsburg.svg",Juventus:"juventus.svg",Marseille:"marseille.svg",Lakers:"lakers.svg",Celtics:"celtics.svg",Warriors:"warriors.svg",Nuggets:"nuggets.svg"};
 /* Team monograms: 2–3 letter code + one consistent colour per team.
-   No real club logos — sample data only (contest brief). */
+   Used for tennis players and as the fallback if a logo image fails to load. */
 const CREST = {Arsenal:["ARS","#d00027"],Brighton:["BHA","#0057b8"],"Brighton & Hove Albion":["BHA","#0057b8"],Liverpool:["LIV","#c8102e"],"Manchester United":["MUN","#da291c"],Inter:["INT","#0068a8"],Chelsea:["CHE","#034694"],"Real Madrid":["RMA","#a67c00"],"Bayern Munich":["BAY","#dc052d"],Tottenham:["TOT","#132257"],"Manchester City":["MCI","#6cabdd"],Napoli:["NAP","#12a0d7"],Milan:["MIL","#c8102e"],Barcelona:["BAR","#a50044"],PSG:["PSG","#004170"],Dortmund:["DOR","#fde100"],Sevilla:["SEV","#d00027"],"Atlético Madrid":["ATM","#cb3524"],Valencia:["VAL","#f57c00"],"Real Sociedad":["SOC","#0067b1"],Roma:["ROM","#f0bc42"],Lazio:["LAZ","#87d8f7"],Leverkusen:["LEV","#e32219"],Leipzig:["LEI","#dd0741"],Frankfurt:["FRA","#e1000f"],Wolfsburg:["WOL","#65b32e"],Juventus:["JUV","#222222"],Marseille:["MAR","#2faae0"],Medvedev:["MED","#5b7fa6"],Zverev:["ZVE","#c8102e"],Alcaraz:["ALC","#e8a33d"],Sinner:["SIN","#3d7eaa"],Lakers:["LAL","#552583"],Celtics:["BOS","#007a33"],Warriors:["GSW","#1d428a"],Nuggets:["DEN","#0e2240"]};
 const LIGHT_BG = new Set(["DOR","ROM","LAZ","MCI","NAP","ALC"]); // dark text on light crests
-function crest(t){
+function monoHTML(t){
   const c = CREST[t];
   const code = c ? c[0] : (String(t).replace(/[^A-Za-z ]/g,"").split(" ").filter(Boolean).map(w=>w[0]).join("").slice(0,3).toUpperCase() || "FC");
   const bg = c ? c[1] : "#5a6b80";
   const fg = LIGHT_BG.has(code) ? "#10243e" : "#fff";
   return `<span class="mono" style="background:${bg};color:${fg}">${code}</span>`;
 }
+function crest(t){
+  const f = LOGO[t];
+  if(f) return `<img class="crest-img" src="logos/${f}" alt="" data-team="${esc(t)}">`;
+  return monoHTML(t);
+}
+/* If a logo image fails to load, fall back to the monogram — never a broken-image icon. */
+document.addEventListener("error", e=>{
+  const t = e.target;
+  if(t && t.classList && t.classList.contains("crest-img") && t.dataset.team){
+    t.outerHTML = monoHTML(t.dataset.team);
+  }
+}, true);
 /* Shirt-number labels only — the contest brief says sample data, no real players.
    Team abbreviations: ARS Arsenal, BHA Brighton, LIV Liverpool, MUN Man Utd, INT Inter,
    RMA Real Madrid, BAY Bayern, MCI Man City, TOT Tottenham, BAR Barcelona, PSG PSG,
