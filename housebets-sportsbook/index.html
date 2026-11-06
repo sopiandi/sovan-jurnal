@@ -829,7 +829,7 @@ function sheetHTML(){
   ${myBetsHTML(betTab)}`;
 }
 function openSheet(){ $("#sheetBody").innerHTML=sheetHTML(); $("#sheet").classList.add("show"); $("#veil").classList.add("show"); }
-function closeSheet(){ $("#sheet").classList.remove("show"); $("#veil").classList.remove("show"); }
+function closeSheet(){ $("#sheet").classList.remove("show"); $("#veil").classList.remove("show"); $("#sheetBody").innerHTML=""; }
 
 /* ================= Page renderers ================= */
 function oddsBtn(m, label, opt, extraCls){
@@ -1101,7 +1101,8 @@ function render(){
   const seg=path.split("/");
   const route=seg[0]||"home";
   const view=$("#view");
-  closeSheet();
+  // Only close the mobile slip sheet on real navigation — a re-render from a
+  // live timer (odds tick, suspension, VAR) must not yank it shut mid-use.
   if(route==="match" && prevHash!==hash) matchTab="Popular"; // fresh navigation to a match page always starts on Popular
   if(route==="live") view.innerHTML=pageLive();
   else if(route==="football") view.innerHTML=pageFootball();
@@ -1114,8 +1115,9 @@ function render(){
   });
   renderSlip();
   // Only jump to the top when the route actually changed; filter/tab clicks keep the scroll position.
+  // The mobile slip sheet closes on navigation too — but stays open across same-route re-renders.
   const routeKey = route + (route==="match" ? "/"+(seg[1]||"") : "");
-  if(window._lastRouteKey !== routeKey){ window.scrollTo(0,0); window._lastRouteKey = routeKey; }
+  if(window._lastRouteKey !== routeKey){ window.scrollTo(0,0); window._lastRouteKey = routeKey; closeSheet(); }
 }
 window.addEventListener("hashchange", render);
 $("#topSearch").addEventListener("input", e=>{ searchQ=e.target.value; if(!(location.hash||"").startsWith("#/home")){ go("#/home"); setTimeout(()=>{ const h=$("#homeSearch"); if(h){ h.value=searchQ; h.focus(); } },30); } else renderSearch(); });
