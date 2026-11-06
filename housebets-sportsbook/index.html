@@ -132,7 +132,11 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .mrow .teams .tm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mrow .teams .tm .sc{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;padding-left:8px}
 .mrow .teams .tm+.tm{margin-top:3px}
-.mrow .teams .tm .crest{font-size:15px}
+/* team monogram: 2-3 letter code in a small coloured circle (no real club logos — sample data) */
+.mono{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:9px;font-weight:800;letter-spacing:.02em;flex:0 0 auto;vertical-align:middle}
+.feat .mono{width:24px;height:24px;font-size:10px}
+.pill .mono{width:20px;height:20px;font-size:9px}
+.sr-item .mono{width:20px;height:20px;font-size:9px}
 .mrow .modds{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,64px);gap:6px}
 .mrow .mrow-more{color:var(--muted);font-size:12px;white-space:nowrap}
 @media(max-width:560px){
@@ -154,7 +158,6 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .feat .top{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-bottom:10px}
 .feat .tm{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;padding:3px 0}
 .feat .tm .sc{margin-left:auto;font-weight:800;font-size:15px}
-.feat .tm .crest{font-size:17px}
 .feat .odds-grid{margin-top:11px}
 
 /* market groups */
@@ -178,7 +181,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .scoreboard .team{flex:1;max-width:220px;min-width:0}
 .scoreboard .team .nm{overflow-wrap:break-word}
 .scoreboard .score{flex:0 0 auto}
-.scoreboard .team .crest{font-size:34px;display:block;margin-bottom:4px}
+.scoreboard .team .mono{width:52px;height:52px;font-size:15px;margin-bottom:6px}
 .scoreboard .team .nm{font-weight:700;font-size:16px}
 .scoreboard .score{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
 .scoreboard .score span{color:var(--muted);font-weight:600;margin:0 4px}
@@ -355,8 +358,17 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 <script>
 "use strict";
 /* ================= Sample data (demo only — no real money) ================= */
-const CREST = {Arsenal:"🔴",Brighton:"🔵","Brighton & Hove Albion":"🔵",Liverpool:"🔴","Manchester United":"😈",Inter:"🔵⚫",Chelsea:"🔵","Real Madrid":"👑","Bayern Munich":"🔴",Tottenham:"🐓","Manchester City":"🔷",Napoli:"🔵",Milan:"🔴⚫",Barcelona:"🔵🔴",PSG:"🔵",Dortmund:"🟡⚫",Sevilla:"⚪🔴","Atlético Madrid":"🔴⚪",Valencia:"🦇","Real Sociedad":"🔵⚪",Roma:"🐺",Lazio:"🦅",Leverkusen:"🔴⚫",Leipzig:"⚪🔴",Frankfurt:"🦅",Wolfsburg:"🟢","Alcaraz":"🎾",Sinner:"🎾",Lakers:"🟣",Celtics:"🟢",Warriors:"🔵",Nuggets:"🔵"};
-const crest = t => CREST[t] || "⚽";
+/* Team monograms: 2–3 letter code + one consistent colour per team.
+   No real club logos — sample data only (contest brief). */
+const CREST = {Arsenal:["ARS","#d00027"],Brighton:["BHA","#0057b8"],"Brighton & Hove Albion":["BHA","#0057b8"],Liverpool:["LIV","#c8102e"],"Manchester United":["MUN","#da291c"],Inter:["INT","#0068a8"],Chelsea:["CHE","#034694"],"Real Madrid":["RMA","#a67c00"],"Bayern Munich":["BAY","#dc052d"],Tottenham:["TOT","#132257"],"Manchester City":["MCI","#6cabdd"],Napoli:["NAP","#12a0d7"],Milan:["MIL","#c8102e"],Barcelona:["BAR","#a50044"],PSG:["PSG","#004170"],Dortmund:["DOR","#fde100"],Sevilla:["SEV","#d00027"],"Atlético Madrid":["ATM","#cb3524"],Valencia:["VAL","#f57c00"],"Real Sociedad":["SOC","#0067b1"],Roma:["ROM","#f0bc42"],Lazio:["LAZ","#87d8f7"],Leverkusen:["LEV","#e32219"],Leipzig:["LEI","#dd0741"],Frankfurt:["FRA","#e1000f"],Wolfsburg:["WOL","#65b32e"],Juventus:["JUV","#222222"],Marseille:["MAR","#2faae0"],Medvedev:["MED","#5b7fa6"],Zverev:["ZVE","#c8102e"],Alcaraz:["ALC","#e8a33d"],Sinner:["SIN","#3d7eaa"],Lakers:["LAL","#552583"],Celtics:["BOS","#007a33"],Warriors:["GSW","#1d428a"],Nuggets:["DEN","#0e2240"]};
+const LIGHT_BG = new Set(["DOR","ROM","LAZ","MCI","NAP","ALC"]); // dark text on light crests
+function crest(t){
+  const c = CREST[t];
+  const code = c ? c[0] : (String(t).replace(/[^A-Za-z ]/g,"").split(" ").filter(Boolean).map(w=>w[0]).join("").slice(0,3).toUpperCase() || "FC");
+  const bg = c ? c[1] : "#5a6b80";
+  const fg = LIGHT_BG.has(code) ? "#10243e" : "#fff";
+  return `<span class="mono" style="background:${bg};color:${fg}">${code}</span>`;
+}
 /* Shirt-number labels only — the contest brief says sample data, no real players.
    Team abbreviations: ARS Arsenal, BHA Brighton, LIV Liverpool, MUN Man Utd, INT Inter,
    RMA Real Madrid, BAY Bayern, MCI Man City, TOT Tottenham, BAR Barcelona, PSG PSG,
@@ -486,7 +498,9 @@ function marketsFor(m){
       {label:"Exact score", type:"cs", opts:[{n:"1-0",odds:7.50},{n:"2-0",odds:9.00},{n:"2-1",odds:6.50},{n:"1-1",odds:8.00},{n:"0-0",odds:12.00},{n:"3-1",odds:13.00}]},
       {label:"Half-time / Full-time", type:"htft", opts:[{n:m.home+" / "+m.home,odds:1.85},{n:m.home+" / Draw",odds:15.00},{n:"Draw / "+m.home,odds:4.50},{n:m.away+" / "+m.away,odds:17.00}]},
       {label:"Team to score first", type:"tsf", opts:[{n:m.home,odds:1.60},{n:m.away,odds:3.20},{n:"No goal",odds:13.00}]},
-      {label:"BTTS & total goals 2.5", type:"bttsou", opts:[{n:"Yes & Over 2.5",odds:2.90},{n:"Yes & Under 2.5",odds:3.40}]}
+      {label:"BTTS & total goals 2.5", type:"bttsou", opts:[{n:"Yes & Over 2.5",odds:2.90},{n:"Yes & Under 2.5",odds:3.40}]},
+      {label:m.home+" to win to nil", type:"wtn", opts:[{n:"Yes",odds:2.40},{n:"No",odds:1.55}]},
+      {label:"First goal before 30:00", type:"fg30", opts:[{n:"Yes",odds:1.90},{n:"No",odds:1.85}]}
     ],
     "Goals":[
       {label:"Total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:1.22},{n:"Under 1.5",odds:4.20}]},
@@ -496,7 +510,9 @@ function marketsFor(m){
       {label:"Total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.04},{n:"Under 0.5",odds:11.00}]},
       {label:"Both teams to score", type:"yn", opts:[{n:"Yes",odds:+bttsY},{n:"No",odds:+bttsN}]},
       {label:m.home+" total goals", type:"tg", opts:[{n:"Over 1.5",odds:1.65},{n:"Under 1.5",odds:2.20}]},
-      {label:m.away+" total goals", type:"tg", opts:[{n:"Over 0.5",odds:1.85},{n:"Under 0.5",odds:1.95}]}
+      {label:m.away+" total goals", type:"tg", opts:[{n:"Over 0.5",odds:1.85},{n:"Under 0.5",odds:1.95}]},
+      {label:"Both teams to score in 2nd half", type:"yn", opts:[{n:"Yes",odds:3.20},{n:"No",odds:1.32}]},
+      {label:"Total goals odd / even", type:"oe", opts:[{n:"Odd",odds:1.90},{n:"Even",odds:1.90}]}
     ],
     "Halves":[
       {label:"1st half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.35).toFixed(2)},{n:"Draw",odds:2.60},{n:m.away,odds:7.50}]},
@@ -504,7 +520,8 @@ function marketsFor(m){
       {label:"Half with most goals", type:"hmg", opts:[{n:"1st half",odds:3.10},{n:"2nd half",odds:2.05},{n:"Equal",odds:3.60}]},
       {label:"Both halves — "+m.home+" to win", type:"bh", opts:[{n:"Yes",odds:4.50},{n:"No",odds:1.18}]},
       {label:"1st half total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.45},{n:"Under 0.5",odds:2.75}]},
-      {label:"2nd half total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:2.10},{n:"Under 1.5",odds:1.72}]}
+      {label:"2nd half total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:2.10},{n:"Under 1.5",odds:1.72}]},
+      {label:"2nd half — both teams to score", type:"yn", opts:[{n:"Yes",odds:3.40},{n:"No",odds:1.30}]}
     ],
     "Handicaps":[
       {label:"Asian handicap −1.5 / +1.5", type:"ah", opts:[{n:m.home+" −1.5",odds:2.05},{n:m.away+" +1.5",odds:1.78}]},
@@ -512,27 +529,31 @@ function marketsFor(m){
       {label:"Asian handicap 0 / 0", type:"ah", opts:[{n:m.home+" 0",odds:1.45},{n:m.away+" 0",odds:2.85}]},
       {label:"Asian handicap −2.0 / +2.0", type:"ah", opts:[{n:m.home+" −2.0",odds:2.85},{n:m.away+" +2.0",odds:1.42}]},
       {label:"Asian handicap −0.5 / +0.5", type:"ah", opts:[{n:m.home+" −0.5",odds:1.62},{n:m.away+" +0.5",odds:2.28}]},
-      {label:"European handicap −1", type:"eh", opts:[{n:m.home+" −1",odds:2.30},{n:"Draw −1",odds:3.80},{n:m.away+" +1",odds:2.90}]}
+      {label:"European handicap −1", type:"eh", opts:[{n:m.home+" −1",odds:2.30},{n:"Draw −1",odds:3.80},{n:m.away+" +1",odds:2.90}]},
+      {label:"Asian handicap −2.5 / +2.5", type:"ah", opts:[{n:m.home+" −2.5",odds:3.40},{n:m.away+" +2.5",odds:1.30}]}
     ],
     "Goalscorers":[
       {label:"Anytime goalscorer", type:"ags", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(2.10+i*0.5).toFixed(2)})).concat(scA.slice(0,2).map((p,i)=>({n:p,odds:+(3.10+i*0.7).toFixed(2)})))},
       {label:"First goalscorer", type:"fgs", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(4.50+i*1.0).toFixed(2)})).concat(scA.slice(0,1).map(p=>({n:p,odds:8.50})))},
       {label:"Next goalscorer", type:"ngs", suspended:true, opts:[{n:scH[0],odds:3.20},{n:scA[0],odds:6.00},{n:"No more goals",odds:5.50}]},
       {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:9.00},{n:scA[0],odds:17.00}]},
-      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:5.50},{n:scH[1],odds:8.00},{n:scA[0],odds:11.00}]}
+      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:5.50},{n:scH[1],odds:8.00},{n:scA[0],odds:11.00}]},
+      {label:"To score in 2nd half", type:"2h", opts:[{n:scH[0],odds:4.50},{n:scH[1],odds:6.00},{n:scA[0],odds:9.00}]}
     ],
     "Corners & cards": cornersSuspended ? [
       {label:"Total corners", type:"corn", suspended:true, opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
       {label:"Total corners 10.5", type:"corn", suspended:true, opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
       {label:"Total cards", type:"cards", suspended:true, opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
       {label:"First corner", type:"fc", suspended:true, opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
-      {label:"Next card", type:"nc", suspended:true, opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]}
+      {label:"Next card", type:"nc", suspended:true, opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]},
+      {label:"Total corners 8.5", type:"corn", suspended:true, opts:[{n:"Over 8.5",odds:1.55},{n:"Under 8.5",odds:2.40}]}
     ] : [
       {label:"Total corners", type:"corn", opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
       {label:"Total corners 10.5", type:"corn", opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
       {label:"Total cards", type:"cards", opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
       {label:"First corner", type:"fc", opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
-      {label:"Next card", type:"nc", opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]}
+      {label:"Next card", type:"nc", opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]},
+      {label:"Total corners 8.5", type:"corn", opts:[{n:"Over 8.5",odds:1.55},{n:"Under 8.5",odds:2.40}]}
     ]
   };
 }
@@ -985,8 +1006,8 @@ function matchRow(m, showMore, mode){
   return `<div class="mrow" onclick="go('#/match/${m.id}')">
     <div class="when">${when}</div>
     <div class="teams">
-      <div class="tm"><span class="crest">${crest(m.home)}</span>${esc(m.home)} ${score}</div>
-      <div class="tm"><span class="crest">${crest(m.away)}</span>${esc(m.away)} ${score2}</div>
+      <div class="tm">${crest(m.home)}${esc(m.home)} ${score}</div>
+      <div class="tm">${crest(m.away)}${esc(m.away)} ${score2}</div>
     </div>
     ${star}
     <div class="modds">
@@ -1000,8 +1021,8 @@ function featCard(m){
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
     <div class="top"><span>${esc(m.comp)}</span>${live?`<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${m.minute}′</span></span>`:`<span>${esc(m.date)} · ${m.time}</span>`}</div>
-    <div class="tm"><span class="crest">${crest(m.home)}</span>${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
-    <div class="tm"><span class="crest">${crest(m.away)}</span>${esc(m.away)}<span class="sc">${live?m.as:""}</span></div>
+    <div class="tm">${crest(m.home)}${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
+    <div class="tm">${crest(m.away)}${esc(m.away)}<span class="sc">${live?m.as:""}</span></div>
     <div class="odds-grid">
       ${oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
       ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
@@ -1077,7 +1098,7 @@ function pageHome(){
   <div class="sec-head"><h2>Favourites</h2><span class="small muted">Tap ★ on any team or competition to follow it</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     ${favComps.map(c=>`<span class="pill"><span class="dot"></span>⭐ ${esc(c)} <button class="x" onclick="toggleFollowComp('${esc(c)}')">✕</button></span>`).join("")}
-    ${favTeams.map(t=>`<span class="pill"><span class="crest">${crest(t)}</span> ${esc(t)} <button class="x" onclick="toggleFollowTeam('${esc(t)}')">✕</button></span>`).join("")}
+    ${favTeams.map(t=>`<span class="pill">${crest(t)} ${esc(t)} <button class="x" onclick="toggleFollowTeam('${esc(t)}')">✕</button></span>`).join("")}
     ${!favComps.length&&!favTeams.length?'<span class="muted small">Nothing followed yet.</span>':""}
   </div>
   <div class="sec-head"><h2>Your matches <span class="sub">${yourMatches.length} matches</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
@@ -1181,9 +1202,9 @@ function pageMatch(id){
     <div class="comp">${esc(m.comp)}${live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+m.time}</div>
     <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
     <div class="teams-row">
-      <div class="team"><span class="crest">${crest(m.home)}</span><div class="nm">${esc(m.home)}</div></div>
+      <div class="team">${crest(m.home)}<div class="nm">${esc(m.home)}</div></div>
       <div class="score">${live?m.hs:"–"}<span>–</span>${live?m.as:"–"}</div>
-      <div class="team"><span class="crest">${crest(m.away)}</span><div class="nm">${esc(m.away)}</div></div>
+      <div class="team">${crest(m.away)}<div class="nm">${esc(m.away)}</div></div>
     </div>
     <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
   </div>
