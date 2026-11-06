@@ -289,6 +289,13 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 .demo-tips{margin-top:18px}
+.preview-box{margin-top:14px;border:1px dashed var(--border2);border-radius:11px;padding:11px 12px;background:var(--card2)}
+.preview-title{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--amber)}
+.preview-sub{font-size:12px;color:var(--muted);margin:3px 0 9px}
+.preview-btns{display:flex;flex-wrap:wrap;gap:7px}
+.preview-btns button{background:var(--card3);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700}
+.preview-btns button:hover{border-color:var(--cyan-dim)}
+.preview-btns button.armed{background:var(--red-bg);border-color:var(--red);color:#ff8f98}
 .demo-tips summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:600}
 .demo-tips ul{margin:8px 0 0 18px;color:var(--muted);font-size:13px;line-height:1.7}
 .demo-tips li b{color:var(--text)}
@@ -350,35 +357,41 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 /* ================= Sample data (demo only — no real money) ================= */
 const CREST = {Arsenal:"🔴",Brighton:"🔵","Brighton & Hove Albion":"🔵",Liverpool:"🔴","Manchester United":"😈",Inter:"🔵⚫",Chelsea:"🔵","Real Madrid":"👑","Bayern Munich":"🔴",Tottenham:"🐓","Manchester City":"🔷",Napoli:"🔵",Milan:"🔴⚫",Barcelona:"🔵🔴",PSG:"🔵",Dortmund:"🟡⚫",Sevilla:"⚪🔴","Atlético Madrid":"🔴⚪",Valencia:"🦇","Real Sociedad":"🔵⚪",Roma:"🐺",Lazio:"🦅",Leverkusen:"🔴⚫",Leipzig:"⚪🔴",Frankfurt:"🦅",Wolfsburg:"🟢","Alcaraz":"🎾",Sinner:"🎾",Lakers:"🟣",Celtics:"🟢",Warriors:"🔵",Nuggets:"🔵"};
 const crest = t => CREST[t] || "⚽";
+/* Shirt-number labels only — the contest brief says sample data, no real players.
+   Team abbreviations: ARS Arsenal, BHA Brighton, LIV Liverpool, MUN Man Utd, INT Inter,
+   RMA Real Madrid, BAY Bayern, MCI Man City, TOT Tottenham, BAR Barcelona, PSG PSG,
+   DOR Dortmund, CHE Chelsea, NAP Napoli, MIL Milan, SEV Sevilla, ATM Atlético,
+   VAL Valencia, SOC Real Sociedad, ROM Roma, LAZ Lazio, LEV Leverkusen, LEI Leipzig,
+   FRA Frankfurt, WOL Wolfsburg. */
 const SCORERS = {
-  Arsenal:["B. Saka","K. Havertz","G. Martinelli","M. Ødegaard"],
-  "Brighton & Hove Albion":["D. Welbeck","J. Pedro","K. Mitoma"],
-  Liverpool:["M. Salah","C. Gakpo","D. Núñez"],
-  "Manchester United":["B. Fernandes","R. Højlund","M. Rashford"],
-  Inter:["L. Martínez","M. Thuram"],
-  "Real Madrid":["K. Mbappé","Vinícius Jr","J. Bellingham"],
-  "Bayern Munich":["H. Kane","J. Musiala","L. Sané"],
-  "Manchester City":["E. Haaland","P. Foden","O. Marmoush"],
-  Tottenham:["S. Heung-min","D. Solanke"],
-  Barcelona:["R. Lewandowski","L. Yamal","Raphinha"],
-  PSG:["O. Dembélé","K. Kvaratskhelia"],
-  Dortmund:["S. Guirassy","J. Brandt"],
-  Chelsea:["C. Palmer","N. Jackson"],
-  Napoli:["R. Lukaku","K. Kvaratskhelia"],
-  Milan:["R. Leão","C. Pulisic"],
-  Sevilla:["Y. En-Nesyri"],
-  "Atlético Madrid":["A. Griezmann","J. Álvarez"],
-  Valencia:["H. Duro"],
-  "Real Sociedad":["M. Oyarzabal"],
-  Roma:["P. Dybala","A. Dovbyk"],
-  Lazio:["C. Immobile"],
-  Leverkusen:["F. Wirtz","V. Boniface"],
-  Leipzig:["B. Šeško","L. Openda"],
-  Frankfurt:["H. Ekitiké"],
-  Wolfsburg:["J. Wind"]
+  Arsenal:["ARS No. 9","ARS No. 7","ARS No. 11","ARS No. 8"],
+  "Brighton & Hove Albion":["BHA No. 9","BHA No. 18","BHA No. 22"],
+  Liverpool:["LIV No. 11","LIV No. 18","LIV No. 9"],
+  "Manchester United":["MUN No. 8","MUN No. 9","MUN No. 10"],
+  Inter:["INT No. 10","INT No. 9"],
+  "Real Madrid":["RMA No. 9","RMA No. 7","RMA No. 5"],
+  "Bayern Munich":["BAY No. 9","BAY No. 42","BAY No. 10"],
+  "Manchester City":["MCI No. 9","MCI No. 47","MCI No. 7"],
+  Tottenham:["TOT No. 7","TOT No. 19"],
+  Barcelona:["BAR No. 9","BAR No. 19","BAR No. 11"],
+  PSG:["PSG No. 10","PSG No. 7"],
+  Dortmund:["DOR No. 9","DOR No. 10"],
+  Chelsea:["CHE No. 20","CHE No. 15"],
+  Napoli:["NAP No. 9","NAP No. 7"],
+  Milan:["MIL No. 10","MIL No. 11"],
+  Sevilla:["SEV No. 9"],
+  "Atlético Madrid":["ATM No. 7","ATM No. 19"],
+  Valencia:["VAL No. 9"],
+  "Real Sociedad":["SOC No. 10"],
+  Roma:["ROM No. 21","ROM No. 9"],
+  Lazio:["LAZ No. 17"],
+  Leverkusen:["LEV No. 10","LEV No. 22"],
+  Leipzig:["LEI No. 30","LEI No. 11"],
+  Frankfurt:["FRA No. 9"],
+  Wolfsburg:["WOL No. 9"]
 };
-const PLAYERS = ["B. Saka","E. Haaland","M. Salah","J. Bellingham","H. Kane","K. Mbappé","L. Yamal","C. Palmer","R. Lewandowski","V. Boniface"];
-const PLAYER_TEAM = {"B. Saka":"Arsenal","E. Haaland":"Manchester City","M. Salah":"Liverpool","J. Bellingham":"Real Madrid","H. Kane":"Bayern Munich","K. Mbappé":"Real Madrid","L. Yamal":"Barcelona","C. Palmer":"Chelsea","R. Lewandowski":"Barcelona","V. Boniface":"Leverkusen"};
+const PLAYERS = ["ARS No. 9","ARS No. 7","MCI No. 9","LIV No. 11","RMA No. 9","CHE No. 20","BAR No. 9","BAY No. 9","TOT No. 7","LEV No. 10"];
+const PLAYER_TEAM = {"ARS No. 9":"Arsenal","ARS No. 7":"Arsenal","MCI No. 9":"Manchester City","LIV No. 11":"Liverpool","RMA No. 9":"Real Madrid","CHE No. 20":"Chelsea","BAR No. 9":"Barcelona","BAY No. 9":"Bayern Munich","TOT No. 7":"Tottenham","LEV No. 10":"Leverkusen"};
 function firstMatchForTeam(t){ return MATCHES.find(m=>(m.home===t||m.away===t)&&m.status==="live") || MATCHES.find(m=>m.home===t||m.away===t); }
 
 let MID = 0;
@@ -412,6 +425,17 @@ const MATCHES = [
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
 const SPORTS = ["Soccer","Tennis","Basketball","Baseball","American Football","Esports"];
 const LIVE_COUNT = MATCHES.filter(m=>m.status==="live").length;
+/* Match events for the featured live match — shirt numbers only, and consistent
+   with the fixture itself (Arsenal 1–0 Brighton, 52'): the only goal is at 31'. */
+const TIMELINE = {
+  m1: [
+    {min:9,  icon:"🟨", text:"Yellow card — BHA No. 6 (foul on ARS No. 7)"},
+    {min:23, icon:"🟨", text:"Yellow card — ARS No. 4 (late tackle)"},
+    {min:31, icon:"⚽", text:"Goal — ARS No. 9 (assist ARS No. 7) · 1–0"},
+    {min:45, icon:"🎯", text:"Chance — BHA No. 11 heads over the bar"},
+    {min:49, icon:"🔄", text:"Substitution — ARS No. 17 on, ARS No. 10 off"}
+  ]
+};
 
 /* markets for a match page — generated from 1X2 odds */
 function marketsFor(m){
@@ -458,12 +482,18 @@ function marketsFor(m){
       {label:"Total goals 2.5", type:"ou", opts:[{n:"Over 2.5",odds:+ou25o},{n:"Under 2.5",odds:+ou25u}]},
       {label:"Double chance", type:"dc", opts:[{n:m.home+" / Draw",odds:1.12},{n:m.home+" / "+m.away,odds:1.18},{n:"Draw / "+m.away,odds:3.10}]},
       {label:"Draw no bet", type:"dnb", opts:[{n:m.home,odds:+(o.h*0.88).toFixed(2)},{n:m.away,odds:+(o.a*0.55).toFixed(2)}]},
-      {label:"Next goal", type:"next", suspended:true, opts:[{n:m.home,odds:1.45},{n:m.away,odds:6.50},{n:"No goal",odds:9.00}]}
+      {label:"Next goal", type:"next", suspended:true, opts:[{n:m.home,odds:1.45},{n:m.away,odds:6.50},{n:"No goal",odds:9.00}]},
+      {label:"Exact score", type:"cs", opts:[{n:"1-0",odds:7.50},{n:"2-0",odds:9.00},{n:"2-1",odds:6.50},{n:"1-1",odds:8.00},{n:"0-0",odds:12.00},{n:"3-1",odds:13.00}]},
+      {label:"Half-time / Full-time", type:"htft", opts:[{n:m.home+" / "+m.home,odds:1.85},{n:m.home+" / Draw",odds:15.00},{n:"Draw / "+m.home,odds:4.50},{n:m.away+" / "+m.away,odds:17.00}]},
+      {label:"Team to score first", type:"tsf", opts:[{n:m.home,odds:1.60},{n:m.away,odds:3.20},{n:"No goal",odds:13.00}]},
+      {label:"BTTS & total goals 2.5", type:"bttsou", opts:[{n:"Yes & Over 2.5",odds:2.90},{n:"Yes & Under 2.5",odds:3.40}]}
     ],
     "Goals":[
       {label:"Total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:1.22},{n:"Under 1.5",odds:4.20}]},
       {label:"Total goals 2.5", type:"ou", opts:[{n:"Over 2.5",odds:+ou25o},{n:"Under 2.5",odds:+ou25u}]},
       {label:"Total goals 3.5", type:"ou", opts:[{n:"Over 3.5",odds:3.40},{n:"Under 3.5",odds:1.32}]},
+      {label:"Total goals 4.5", type:"ou", opts:[{n:"Over 4.5",odds:6.50},{n:"Under 4.5",odds:1.12}]},
+      {label:"Total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.04},{n:"Under 0.5",odds:11.00}]},
       {label:"Both teams to score", type:"yn", opts:[{n:"Yes",odds:+bttsY},{n:"No",odds:+bttsN}]},
       {label:m.home+" total goals", type:"tg", opts:[{n:"Over 1.5",odds:1.65},{n:"Under 1.5",odds:2.20}]},
       {label:m.away+" total goals", type:"tg", opts:[{n:"Over 0.5",odds:1.85},{n:"Under 0.5",odds:1.95}]}
@@ -472,28 +502,37 @@ function marketsFor(m){
       {label:"1st half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.35).toFixed(2)},{n:"Draw",odds:2.60},{n:m.away,odds:7.50}]},
       {label:"2nd half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.15).toFixed(2)},{n:"Draw",odds:3.40},{n:m.away,odds:9.00}]},
       {label:"Half with most goals", type:"hmg", opts:[{n:"1st half",odds:3.10},{n:"2nd half",odds:2.05},{n:"Equal",odds:3.60}]},
-      {label:"Both halves — "+m.home+" to win", type:"bh", opts:[{n:"Yes",odds:4.50},{n:"No",odds:1.18}]}
+      {label:"Both halves — "+m.home+" to win", type:"bh", opts:[{n:"Yes",odds:4.50},{n:"No",odds:1.18}]},
+      {label:"1st half total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.45},{n:"Under 0.5",odds:2.75}]},
+      {label:"2nd half total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:2.10},{n:"Under 1.5",odds:1.72}]}
     ],
     "Handicaps":[
       {label:"Asian handicap −1.5 / +1.5", type:"ah", opts:[{n:m.home+" −1.5",odds:2.05},{n:m.away+" +1.5",odds:1.78}]},
       {label:"Asian handicap −1 / +1", type:"ah", opts:[{n:m.home+" −1",odds:1.72},{n:m.away+" +1",odds:2.10}]},
       {label:"Asian handicap 0 / 0", type:"ah", opts:[{n:m.home+" 0",odds:1.45},{n:m.away+" 0",odds:2.85}]},
+      {label:"Asian handicap −2.0 / +2.0", type:"ah", opts:[{n:m.home+" −2.0",odds:2.85},{n:m.away+" +2.0",odds:1.42}]},
+      {label:"Asian handicap −0.5 / +0.5", type:"ah", opts:[{n:m.home+" −0.5",odds:1.62},{n:m.away+" +0.5",odds:2.28}]},
       {label:"European handicap −1", type:"eh", opts:[{n:m.home+" −1",odds:2.30},{n:"Draw −1",odds:3.80},{n:m.away+" +1",odds:2.90}]}
     ],
     "Goalscorers":[
       {label:"Anytime goalscorer", type:"ags", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(2.10+i*0.5).toFixed(2)})).concat(scA.slice(0,2).map((p,i)=>({n:p,odds:+(3.10+i*0.7).toFixed(2)})))},
       {label:"First goalscorer", type:"fgs", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(4.50+i*1.0).toFixed(2)})).concat(scA.slice(0,1).map(p=>({n:p,odds:8.50})))},
       {label:"Next goalscorer", type:"ngs", suspended:true, opts:[{n:scH[0],odds:3.20},{n:scA[0],odds:6.00},{n:"No more goals",odds:5.50}]},
-      {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:9.00},{n:scA[0],odds:17.00}]}
+      {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:9.00},{n:scA[0],odds:17.00}]},
+      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:5.50},{n:scH[1],odds:8.00},{n:scA[0],odds:11.00}]}
     ],
     "Corners & cards": cornersSuspended ? [
       {label:"Total corners", type:"corn", suspended:true, opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
+      {label:"Total corners 10.5", type:"corn", suspended:true, opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
       {label:"Total cards", type:"cards", suspended:true, opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
-      {label:"First corner", type:"fc", suspended:true, opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]}
+      {label:"First corner", type:"fc", suspended:true, opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
+      {label:"Next card", type:"nc", suspended:true, opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]}
     ] : [
       {label:"Total corners", type:"corn", opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
+      {label:"Total corners 10.5", type:"corn", opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
       {label:"Total cards", type:"cards", opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
-      {label:"First corner", type:"fc", opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]}
+      {label:"First corner", type:"fc", opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
+      {label:"Next card", type:"nc", opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]}
     ]
   };
 }
@@ -510,7 +549,7 @@ let myBets = store.get("mybets", null) || {
     {id:"b2", sel:"Manchester City to win", market:"Match result", match:"Man City 2–1 Arsenal", comp:"Premier League", odds:2.10, stake:10, result:"won", ret:21.00, placed:"Oct 12, 15:02"},
     {id:"b3", sel:"Draw", market:"Match result", match:"Liverpool 2–2 Chelsea", comp:"Premier League", odds:3.40, stake:5, result:"lost", ret:0, placed:"Oct 11, 17:30"},
     {id:"b4", sel:"Over 2.5 goals", market:"Total goals", match:"Real Madrid 3–1 Barcelona", comp:"LaLiga", odds:1.85, stake:15, result:"won", ret:27.75, placed:"Oct 9, 20:14"},
-    {id:"b5", sel:"B. Saka anytime scorer", market:"Anytime goalscorer", match:"Arsenal 3–0 Nottingham Forest", comp:"Premier League", odds:2.40, stake:10, result:"won", ret:24.00, placed:"Oct 5, 13:45"}
+    {id:"b5", sel:"ARS No. 9 anytime scorer", market:"Anytime goalscorer", match:"Arsenal 3–0 Nottingham Forest", comp:"Premier League", odds:2.40, stake:10, result:"won", ret:24.00, placed:"Oct 5, 13:45"}
   ]
 };
 let slip = [];            // {key, matchId, match, comp, market, sel, odds, stake, oldOdds, suspended}
@@ -518,6 +557,7 @@ let slipMsg = null;       // {kind:'ok'|'err', msg} — persists across re-rende
 let betTab = "open";
 let liveFilter = {sport:"All", comp:"All"};
 let footComp = "Premier League";
+let footMarket = "1x2"; // Football page odds columns: "1x2" | "ou" (Total goals) | "btts"
 let matchTab = "Popular";
 let matchId = MATCHES[0].id;
 let searchQ = "";
@@ -534,6 +574,7 @@ function toast(msg, kind){
   $("#toasts").appendChild(t); setTimeout(()=>t.remove(), 3200);
 }
 function go(h){ location.hash=h; }
+function goMatch(id, tab){ window._pendingMatchTab = tab||null; go('#/match/'+id); }
 function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); }
 function saveAll(){ store.set("follows", follows); store.set("mybets", myBets); }
 
@@ -619,19 +660,68 @@ function tickSuspension(){
     target={m, label:mk.label};
   }
   if(!target || !target.m) return;
-  const key=marketKey(target.m.id, target.label);
-  if(suspendedMarkets.has(key)) return;
+  suspendMarket(target.m.id, target.label, 15000);
+}
+/* Shared suspension path — used by the live engine, the VAR script and the
+   judge preview button, so all three suspend (and unsuspend) the same way. */
+function suspendMarket(matchId, label, ms){
+  const m = MATCHES.find(x=>x.id===matchId); if(!m) return;
+  const key = marketKey(matchId, label);
+  if(suspendedMarkets.has(key)){ toast("Already suspended: "+label); return; }
   suspendedMarkets.add(key);
-  slip.forEach(s=>{ if(s.matchId===target.m.id && s.market===target.label){ s.suspended=true; } });
-  toast("⚠️ Market suspended: "+target.label+" — "+target.m.home+" v "+target.m.away, "err");
+  slip.forEach(s=>{ if(s.matchId===matchId && s.market===label){ s.suspended=true; } });
+  toast("⚠️ Market suspended: "+label+" — "+m.home+" v "+m.away, "err");
   renderSlip();
   if(location.hash.startsWith("#/match")) render();
   setTimeout(()=>{
     suspendedMarkets.delete(key);
-    slip.forEach(s=>{ if(s.matchId===target.m.id && s.market===target.label){ s.suspended=false; } });
+    slip.forEach(s=>{ if(s.matchId===matchId && s.market===label){ s.suspended=false; } });
     renderSlip();
     if(location.hash.startsWith("#/match")) render();
-  }, 15000);
+  }, ms||15000);
+}
+
+/* ================= Judge preview controls (PROTOTYPE — PREVIEW EVERY STATE) ===
+   These trigger the REAL states, not fake labels, so a judge can see every
+   state on demand instead of waiting for a timer. */
+let failNextBet = false; // armed by the preview button; consumed by placeBets
+function previewMoveOdds(){
+  for(let i=0;i<3;i++) tickOdds();
+  toast("📈 Live odds moved — watch the prices flash", "ok");
+}
+function previewSuspend(){
+  const s = slip.find(x=>!x.suspended);
+  if(s){ suspendMarket(s.matchId, s.market, 15000); return; }
+  // No slip selection yet: suspend Match result on the featured match instead.
+  suspendMarket(MATCHES[0].id, "Match result", 15000);
+  toast("⛔ Match result suspended on Arsenal v Brighton for 15s — open the match page to see it locked", "err");
+}
+function previewFailNext(){
+  failNextBet = true;
+  toast("💥 Next bet will fail — place a bet to see the failed state", "err");
+  renderSlip();
+}
+function previewOddsChanged(){
+  const s = slip.find(x=>!x.suspended);
+  if(!s){ toast("Add a selection to the slip first, then tap “Odds changed”.", "err"); return; }
+  s.oldOdds = s.odds;
+  let next = Math.max(1.02, Math.round((s.odds + (Math.random()<0.5?-1:1)*(0.03+Math.random()*0.08))*100)/100);
+  if(next===s.oldOdds) next = Math.round((s.odds+0.05)*100)/100;
+  s.odds = next; s.changed = true;
+  renderSlip();
+  toast("⚠️ Odds changed on "+s.sel+" — accept the new price before placing", "err");
+}
+function previewBoxHTML(){
+  return `<div class="preview-box">
+    <div class="preview-title">🧪 Prototype — Preview every state</div>
+    <div class="preview-sub">Judge controls — these trigger the real states, not screenshots.</div>
+    <div class="preview-btns">
+      <button onclick="previewMoveOdds()">📈 Move live odds</button>
+      <button onclick="previewSuspend()">⛔ Suspend selection</button>
+      <button onclick="previewFailNext()" class="${failNextBet?"armed":""}">${failNextBet?"💥 Fail next bet: ARMED":"💥 Fail next bet"}</button>
+      <button onclick="previewOddsChanged()">⚠️ Odds changed</button>
+    </div>
+  </div>`;
 }
 setInterval(tickOdds, 5000);
 setInterval(tickSuspension, 42000);
@@ -718,6 +808,7 @@ function placeBets(){
   if(susp){ showSlipMsg("err","Bet failed — “"+susp.sel+"” ("+susp.market+") is suspended. Remove it or wait for the market to reopen."); toast("❌ Bet failed — selection suspended", "err"); return; }
   const chg = slip.find(s=>s.changed);
   if(chg){ showSlipMsg("err","Odds changed — accept the new odds for “"+chg.sel+"” ("+fmt(chg.oldOdds)+" → "+fmt(chg.odds)+") before placing."); toast("⚠️ Odds changed — accept first", "err"); return; }
+  if(failNextBet){ failNextBet=false; showSlipMsg("err","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); renderSlip(); return; }
   placing=true; renderSlip();
   setTimeout(()=>{
     placing=false;
@@ -758,7 +849,8 @@ function resetDemo(){
 function slipHTML(){
   if(!slip.length){
     return `<div class="slip-empty"><div class="big">🧾</div>Your bet slip is empty.<br>Tap any odd to add a single.<br><span class="small">Singles only — no multis, no bet builder.</span></div>
-    ${slipMsg?`<div class="slip-msg slip-${slipMsg.kind} show">${esc(slipMsg.msg)}</div>`:""}`;
+    ${slipMsg?`<div class="slip-msg slip-${slipMsg.kind} show">${esc(slipMsg.msg)}</div>`:""}
+    ${previewBoxHTML()}`;
   }
   const t=slipTotals();
   return slip.map(s=>`
@@ -782,7 +874,8 @@ function slipHTML(){
       <button class="placebtn ${placing?"busy":""}" ${placing?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
       <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsg?esc(slipMsg.msg):""}</div>
       <div class="singles-note">Singles only · Decimal odds · Stakes in USDT · Demo data — no real money</div>
-    </div>`;
+    </div>
+  ${previewBoxHTML()}`;
 }
 function myBetsHTML(tab){
   const list = tab==="open" ? myBets.open : myBets.settled;
@@ -835,10 +928,45 @@ function closeSheet(){ $("#sheet").classList.remove("show"); $("#veil").classLis
 function oddsBtn(m, label, opt, extraCls){
   const susp = opt.suspended || isSuspended(m,label);
   const inSlip = slip.some(s=>s.key===oddKey(m,label,opt.n));
-  return `<button class="odds${inSlip?" sel":""}${susp?" locked":""}${extraCls||""}" data-odd-key="${esc(oddKey(m,label,opt.n))}" onclick="addToSlip(MATCHES.find(x=>x.id==='${m.id}'), '${esc(label)}', '${esc(opt.n)}', ${opt.odds}, ${susp})">
+  return `<button class="odds${inSlip?" sel":""}${susp?" locked":""}${extraCls||""}" data-odd-key="${esc(oddKey(m,label,opt.n))}" onclick="event.stopPropagation();addToSlip(MATCHES.find(x=>x.id==='${m.id}'), '${esc(label)}', '${esc(opt.n)}', ${opt.odds}, ${susp})">
     <span class="lb">${esc(opt.n)}${susp?" 🔒":""}</span><span class="vl">${susp?"—":fmt(opt.odds)}</span></button>`;
 }
-function matchRow(m, showMore){
+function rowOdds(m, mode){
+  const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
+  if(!mode || mode==="1x2" || m.sport!=="Soccer"){
+    return [
+      oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h}),
+      m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):"",
+      oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})
+    ].filter(Boolean);
+  }
+  // Football page market switcher: the 3 columns really change to that market's
+  // odds, read from the match's own market list so they move and suspend like
+  // the same odds on the match page.
+  if(!m._markets) m._markets=marketsFor(m);
+  const findOp=(group,label,sel)=>{
+    const mk=(m._markets[group]||[]).find(x=>x.label===label);
+    if(!mk) return null;
+    const op=mk.opts.find(o=>o.n===sel);
+    return op?{label,op}:null;
+  };
+  const cell=(f,label,sel)=>{
+    if(f) return oddsBtn(m,label,{n:sel,odds:f.op.odds});
+    return `<span class="odds" style="opacity:.4"><span class="lb">${esc(sel)}</span><span class="vl">—</span></span>`;
+  };
+  if(mode==="ou"){
+    return ["1.5","2.5","3.5"].map(line=>{
+      const f=findOp("Goals","Total goals "+line,"Over "+line);
+      return cell(f,"Total goals "+line,"Over "+line);
+    });
+  }
+  // btts: Yes / No / Yes & Over 2.5 (one combined market = one single, not a multi)
+  const fY=findOp("Popular","Both teams to score","Yes");
+  const fN=findOp("Popular","Both teams to score","No");
+  const fC=findOp("Popular","BTTS & total goals 2.5","Yes & Over 2.5");
+  return [cell(fY,"Both teams to score","Yes"), cell(fN,"Both teams to score","No"), cell(fC,"BTTS & total goals 2.5","Yes & Over 2.5")];
+}
+function matchRow(m, showMore, mode){
   const live = m.status==="live";
   // Non-soccer rows use the sport's own market name — "Match result" is soccer-only.
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
@@ -848,7 +976,11 @@ function matchRow(m, showMore){
   const when = live ? liveWhen : `<b>${m.time}</b>${m.date}`;
   const score = live ? `<span class="sc">${m.hs}</span>` : "";
   const score2 = live ? `<span class="sc">${m.as}</span>` : "";
-  const more = showMore===false ? "" : `<span class="mrow-more">+${8+((m.id.charCodeAt(1)||0)%12)} ›</span>`;
+  // Truthful "+N": the number of OTHER markets on this match's page (total
+  // markets minus the one already shown as the row's odds) — not a made-up number.
+  if(!m._markets) m._markets=marketsFor(m);
+  const totalMk=Object.values(m._markets).flat().length;
+  const more = showMore===false ? "" : `<span class="mrow-more">+${Math.max(0,totalMk-1)} ›</span>`;
   const star = `<button class="starbtn ${follows.teams.includes(m.home)?"on":""}" onclick="event.stopPropagation();toggleFollowTeam('${esc(m.home)}')" title="Follow ${esc(m.home)}">★</button>`;
   return `<div class="mrow" onclick="go('#/match/${m.id}')">
     <div class="when">${when}</div>
@@ -858,9 +990,7 @@ function matchRow(m, showMore){
     </div>
     ${star}
     <div class="modds">
-      ${m.odds.d?oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h}):oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
-      ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
-      ${oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})}
+      ${rowOdds(m, mode).join("")}
     </div>
     ${more}
   </div>`;
@@ -904,16 +1034,30 @@ function searchResultsHTML(q){
   const teams=[...new Set(MATCHES.flatMap(m=>[m.home,m.away]))].filter(t=>t.toLowerCase().includes(q));
   const comps=[...new Set(MATCHES.map(m=>m.comp))].filter(c=>c.toLowerCase().includes(q));
   const players=PLAYERS.filter(p=>p.toLowerCase().includes(q));
-  const markets=["Match result","Both teams to score","Total goals 2.5","Asian handicap","Anytime goalscorer","Total corners"].filter(x=>x.toLowerCase().includes(q));
   const matches=MATCHES.filter(m=>(m.home+" "+m.away+" "+m.comp).toLowerCase().includes(q));
-  if(!teams.length&&!comps.length&&!players.length&&!markets.length&&!matches.length)
+  // Odds group: live prices from the matching matches (Match result / Match winner).
+  const oddsItems=[];
+  matches.slice(0,3).forEach(m=>{
+    if(!m._markets) m._markets=marketsFor(m);
+    const mr=(m._markets["Popular"]||[]).find(mk=>mk.label==="Match result"||mk.label==="Match winner");
+    if(mr) mr.opts.forEach(op=>oddsItems.push({label:op.n+" @ "+fmt(op.odds), matchId:m.id, sub:m.home+" v "+m.away+" · "+mr.label}));
+  });
+  // Markets group: every market label on the featured match page, with its group,
+  // so a market result opens the match page on the right market tab.
+  const mkIndex=[];
+  const feat=MATCHES[0];
+  if(!feat._markets) feat._markets=marketsFor(feat);
+  Object.entries(feat._markets).forEach(([g, mkts])=>mkts.forEach(mk=>mkIndex.push({label:mk.label, group:g})));
+  const markets=mkIndex.filter(x=>x.label.toLowerCase().includes(q));
+  if(!teams.length&&!comps.length&&!players.length&&!markets.length&&!matches.length&&!oddsItems.length)
     return `<div class="search-results"><div class="empty card"><div class="big">🔍</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
   let h=`<div class="search-results">`;
   if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>`<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${m.status==="live"?"🔴 Live "+m.minute+"′":esc(m.date)+" "+m.time} · ${esc(m.comp)}</span></button>`).join(""); }
+  if(oddsItems.length){ h+=`<div class="sr-group">Odds</div>`+oddsItems.slice(0,6).map(o=>`<button class="sr-item" onclick="goMatch('${o.matchId}')"><span class="tag">Odds</span><span class="nm">${esc(o.label)}</span><span class="meta">${esc(o.sub)}</span></button>`).join(""); }
   if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
   if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
   if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
-  if(markets.length){ const lm=MATCHES.find(m=>m.sport==="Soccer"&&m.status==="live")||MATCHES[0]; h+=`<div class="sr-group">Markets</div>`+markets.map(mk=>`<button class="sr-item" onclick="go('#/match/${lm.id}')"><span class="tag">Market</span><span class="nm">${esc(mk)}</span><span class="meta">${esc(lm.home)} v ${esc(lm.away)}</span></button>`).join(""); }
+  if(markets.length){ const lm=MATCHES.find(m=>m.sport==="Soccer"&&m.status==="live")||MATCHES[0]; h+=`<div class="sr-group">Markets</div>`+markets.slice(0,6).map(mk=>`<button class="sr-item" onclick="goMatch('${lm.id}', '${esc(mk.group)}')"><span class="tag">Market</span><span class="nm">${esc(mk.label)}</span><span class="meta">${esc(mk.group)} · ${esc(lm.home)} v ${esc(lm.away)}</span></button>`).join(""); }
   return h+`</div>`;
 }
 
@@ -996,12 +1140,17 @@ function pageFootball(){
   <h1>Football</h1>
   <p class="muted small" style="margin:6px 0 14px">Top competitions — tap ★ to follow a team or a competition.</p>
   <div class="mtabs">${COMPS.map(c=>`<button class="mtab ${footComp===c?"on":""}" onclick="footComp='${esc(c)}';render()">${esc(c)} <span onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" style="cursor:pointer">${follows.comps.includes(c)?"★":"☆"}</span></button>`).join("")}</div>
+  <div class="filters">
+    <button class="fchip ${footMarket==="1x2"?"on":""}" onclick="footMarket='1x2';render()">Match result</button>
+    <button class="fchip ${footMarket==="ou"?"on":""}" onclick="footMarket='ou';render()">Total goals</button>
+    <button class="fchip ${footMarket==="btts"?"on":""}" onclick="footMarket='btts';render()">Both teams to score</button>
+  </div>
   <div class="group-label">${esc(footComp)} ${follows.comps.includes(footComp)?"· ⭐ Following":""}</div>
-  <div class="card">${list.length?list.map(m=>matchRow(m)).join(""):'<div class="slip-empty">No fixtures in this competition yet.</div>'}</div>
+  <div class="card">${list.length?list.map(m=>matchRow(m, true, footMarket)).join(""):'<div class="slip-empty">No fixtures in this competition yet.</div>'}</div>
   <div class="sec-head"><h2>All football</h2><span class="small muted">${MATCHES.filter(m=>m.sport==="Soccer").length} matches</span></div>
   ${COMPS.filter(c=>c!==footComp).map(c=>{
     const ms=MATCHES.filter(m=>m.sport==="Soccer"&&m.comp===c);
-    return `<div class="group-label">${esc(c)}</div><div class="card">${ms.map(m=>matchRow(m)).join("")}</div>`;
+    return `<div class="group-label">${esc(c)}</div><div class="card">${ms.map(m=>matchRow(m, true, footMarket)).join("")}</div>`;
   }).join("")}
   <div class="footer-note"><span class="badge-demo">Demo prototype</span> &nbsp;Sample fixtures and odds only.</div>`;
 }
@@ -1014,6 +1163,9 @@ function pageMatch(id){
   if(!m._markets) m._markets=marketsFor(m);
   const groups=Object.keys(m._markets);
   if(!groups.includes(matchTab)) matchTab="Popular";
+  // A search result (or any goMatch caller) can ask for a specific market group.
+  if(window._pendingMatchTab && groups.includes(window._pendingMatchTab)){ matchTab=window._pendingMatchTab; }
+  window._pendingMatchTab=null;
   const live=m.status==="live";
   // Scoreboard clock: soccer ticks by the minute; tennis shows the set score, basketball the period.
   const clockHTML = !live ? `<span class="clock">${esc(m.date||"")}</span>`
@@ -1022,6 +1174,7 @@ function pageMatch(id){
     : `<span class="clock" data-clock="${m.minute}">${m.minute}′ 00″</span>`;
   const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
   const mkts=m._markets[matchTab];
+  const tl = TIMELINE[m.id];
   return `
   <div style="margin-bottom:10px"><a href="${m.sport==="Soccer"?"#/football":"#/live"}" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
@@ -1034,6 +1187,7 @@ function pageMatch(id){
     </div>
     <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
   </div>
+  ${tl?`<div class="card" style="padding:13px 14px;margin-bottom:14px"><h3 style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px">Match events</h3>${tl.map(e=>`<div style="display:flex;gap:10px;padding:5px 0;font-size:13px"><span style="flex:0 0 34px;font-weight:800;font-variant-numeric:tabular-nums">${e.min}′</span><span style="flex:0 0 20px">${e.icon}</span><span>${esc(e.text)}</span></div>`).join("")}</div>`:""}
   <div class="var-banner${(varActive && m.id===MATCHES[0].id)?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
   <div class="mtabs">
     ${groups.map(g=>{
@@ -1081,6 +1235,7 @@ function pageBets(){
   <details class="demo-tips">
     <summary>💡 Prototype tips — how to see every state</summary>
     <ul>
+      <li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons in the slip panel — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>
       <li><b>Odds moving:</b> prices nudge every few seconds and flash green/red — on this page and the match page.</li>
       <li><b>Odds changed:</b> leave a selection in the slip; when its price moves you'll see “Odds changed” and must tap <b>Accept</b> before placing.</li>
       <li><b>Suspended:</b> on the Arsenal match page, the <b>Corners &amp; cards</b> group and <b>Next goal</b> are suspended (locked). Live markets also suspend briefly from time to time — a suspended selection in the slip can't be placed.</li>
