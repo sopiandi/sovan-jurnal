@@ -378,6 +378,8 @@ const SCORERS = {
   Wolfsburg:["J. Wind"]
 };
 const PLAYERS = ["B. Saka","E. Haaland","M. Salah","J. Bellingham","H. Kane","K. Mbappé","L. Yamal","C. Palmer","R. Lewandowski","V. Boniface"];
+const PLAYER_TEAM = {"B. Saka":"Arsenal","E. Haaland":"Manchester City","M. Salah":"Liverpool","J. Bellingham":"Real Madrid","H. Kane":"Bayern Munich","K. Mbappé":"Real Madrid","L. Yamal":"Barcelona","C. Palmer":"Chelsea","R. Lewandowski":"Barcelona","V. Boniface":"Leverkusen"};
+function firstMatchForTeam(t){ return MATCHES.find(m=>(m.home===t||m.away===t)&&m.status==="live") || MATCHES.find(m=>m.home===t||m.away===t); }
 
 let MID = 0;
 function mkMatch(o){ return Object.assign({id:"m"+(++MID), sport:"Soccer", status:"upcoming", minute:0, hs:null, as:null, odds:{h:2.00,d:3.40,a:3.60}, markets:null}, o); }
@@ -697,7 +699,13 @@ function setStake(key, val, el){
   $$(`.slip-item[data-slip-key="${CSS.escape(key)}"]`).forEach(item=>{
     const ret=item.querySelector(".ret b"); if(ret) ret.textContent=fmt((parseFloat(s.stake)||0)*s.odds)+" USDT";
   });
-  $$(".placebar .tot b").forEach((b,i)=>{ b.textContent=fmt(i===0?t.stake:t.ret)+" USDT"; });
+  // Update totals per placebar (panel, bets page, sheet each have their own) —
+  // indexing all ".tot b" across the document mixes them up when two are visible.
+  $$(".placebar").forEach(pb=>{
+    const bs=pb.querySelectorAll(".tot b");
+    if(bs[0]) bs[0].textContent=fmt(t.stake)+" USDT";
+    if(bs[1]) bs[1].textContent=fmt(t.ret)+" USDT";
+  });
   const sb=$("#slipbarRet"); if(sb) sb.textContent="Potential "+fmt(t.ret)+" USDT";
 }
 function clearSlipMsg(){ slipMsg=null; }
@@ -832,6 +840,8 @@ function oddsBtn(m, label, opt, extraCls){
 }
 function matchRow(m, showMore){
   const live = m.status==="live";
+  // Non-soccer rows use the sport's own market name — "Match result" is soccer-only.
+  const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1}</div>`
     : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock">${esc((m.period||"").split(" ")[0])}</div>`
     : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${m.minute}′</div>`;
@@ -848,23 +858,24 @@ function matchRow(m, showMore){
     </div>
     ${star}
     <div class="modds">
-      ${m.odds.d?oddsBtn(m,"Match result",{n:m.home,odds:m.odds.h}):oddsBtn(m,"Match result",{n:m.home,odds:m.odds.h})}
-      ${m.odds.d?oddsBtn(m,"Match result",{n:"Draw",odds:m.odds.d}):""}
-      ${oddsBtn(m,"Match result",{n:m.away,odds:m.odds.a})}
+      ${m.odds.d?oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h}):oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
+      ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
+      ${oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})}
     </div>
     ${more}
   </div>`;
 }
 function featCard(m){
   const live=m.status==="live";
+  const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
     <div class="top"><span>${esc(m.comp)}</span>${live?`<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${m.minute}′</span></span>`:`<span>${esc(m.date)} · ${m.time}</span>`}</div>
     <div class="tm"><span class="crest">${crest(m.home)}</span>${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
     <div class="tm"><span class="crest">${crest(m.away)}</span>${esc(m.away)}<span class="sc">${live?m.as:""}</span></div>
     <div class="odds-grid">
-      ${oddsBtn(m,"Match result",{n:m.home,odds:m.odds.h})}
-      ${m.odds.d?oddsBtn(m,"Match result",{n:"Draw",odds:m.odds.d}):""}
-      ${oddsBtn(m,"Match result",{n:m.away,odds:m.odds.a})}
+      ${oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
+      ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
+      ${oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})}
     </div>
   </div>`;
 }
@@ -899,10 +910,10 @@ function searchResultsHTML(q){
     return `<div class="search-results"><div class="empty card"><div class="big">🔍</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
   let h=`<div class="search-results">`;
   if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>`<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${m.status==="live"?"🔴 Live "+m.minute+"′":esc(m.date)+" "+m.time} · ${esc(m.comp)}</span></button>`).join(""); }
-  if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>`<button class="sr-item" onclick="go('#/football')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">Follow to add to Favourites</span></button>`).join(""); }
-  if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>`<button class="sr-item" onclick="go('#/match/${MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">Goalscorer markets</span></button>`).join(""); }
-  if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
-  if(markets.length){ h+=`<div class="sr-group">Markets</div>`+markets.map(mk=>`<button class="sr-item" onclick="go('#/match/${MATCHES[0].id}')"><span class="tag">Market</span><span class="nm">${esc(mk)}</span><span class="meta">Arsenal v Brighton</span></button>`).join(""); }
+  if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
+  if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
+  if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
+  if(markets.length){ const lm=MATCHES.find(m=>m.sport==="Soccer"&&m.status==="live")||MATCHES[0]; h+=`<div class="sr-group">Markets</div>`+markets.map(mk=>`<button class="sr-item" onclick="go('#/match/${lm.id}')"><span class="tag">Market</span><span class="nm">${esc(mk)}</span><span class="meta">${esc(lm.home)} v ${esc(lm.away)}</span></button>`).join(""); }
   return h+`</div>`;
 }
 
@@ -910,12 +921,15 @@ function searchResultsHTML(q){
 function pageHome(){
   const favComps=follows.comps, favTeams=follows.teams;
   const yourMatches = MATCHES.filter(m=>m.featured || favTeams.includes(m.home) || favTeams.includes(m.away)).slice(0,3);
+  const liveNow = MATCHES.filter(m=>m.status==="live");
   const featured = MATCHES.filter(m=>m.featured);
   const upcoming = MATCHES.filter(m=>m.status==="upcoming").slice(0,6);
   return `
   <div class="searchbar"><input id="homeSearch" type="text" placeholder="Search teams, players or leagues" value="${esc(searchQ)}" oninput="searchQ=this.value;renderSearch()"></div>
   <div id="searchOut">${searchResultsHTML(searchQ)}</div>
   ${sportNavHTML("Home")}
+  <div class="sec-head"><h2>Live now <span class="sub">${liveNow.length} live</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
+  <div class="card">${liveNow.slice(0,4).map(m=>matchRow(m)).join("")}</div>
   <div class="sec-head"><h2>Favourites</h2><span class="small muted">Tap ★ on any team or competition to follow it</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     ${favComps.map(c=>`<span class="pill"><span class="dot"></span>⭐ ${esc(c)} <button class="x" onclick="toggleFollowComp('${esc(c)}')">✕</button></span>`).join("")}
@@ -924,6 +938,10 @@ function pageHome(){
   </div>
   <div class="sec-head"><h2>Your matches <span class="sub">${yourMatches.length} matches</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
   <div class="card">${yourMatches.map(m=>matchRow(m)).join("")}</div>
+  <div class="sec-head"><h2>Top competitions</h2><a href="#/football">All football ›</a></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    ${COMPS.map(c=>{ const n=MATCHES.filter(m=>m.comp===c).length; const fol=follows.comps.includes(c); return `<button class="pill" onclick="footComp='${esc(c)}';go('#/football')"><span class="dot"></span>🏆 ${esc(c)} · ${n} matches <span onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" style="cursor:pointer">${fol?"★":"☆"}</span></button>`; }).join("")}
+  </div>
   <div class="sec-head"><h2>Featured matches</h2><a href="#/football">All football ›</a></div>
   <div class="feat-grid">${featured.map(featCard).join("")}</div>
   <div class="sec-head"><h2>Upcoming events</h2></div>
@@ -942,6 +960,7 @@ function pageLive(){
     const params=new URLSearchParams(hashNow.split("?")[1]||"");
     const qsSport=params.get("sport");
     liveFilter.sport = qsSport || "All";
+    if(qsSport) liveFilter.comp = "All"; // a sport link is a fresh sport view, not a comp-filtered one
   }
   const live=MATCHES.filter(m=>m.status==="live");
   const filtered=live.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
@@ -960,7 +979,7 @@ function pageLive(){
   <h1>Live now <span class="live-badge">● ${live.length} live</span></h1>
   <p class="muted small" style="margin:6px 0 14px">Every match in play — scores and clocks update live.</p>
   <div class="filters">
-    ${["All","Soccer","Tennis","Basketball","Baseball","American Football","Esports"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';render()">${s==="All"?"All sports":s}</button>`).join("")}
+    ${["All","Soccer","Tennis","Basketball","Baseball","American Football","Esports"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';liveFilter.comp='All';render()">${s==="All"?"All sports":s}</button>`).join("")}
   </div>
   <div class="filters">
     <button class="fchip ${liveFilter.comp==="All"?"on":""}" onclick="liveFilter.comp='All';render()">All competitions</button>
@@ -1004,7 +1023,7 @@ function pageMatch(id){
   const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
   const mkts=m._markets[matchTab];
   return `
-  <div style="margin-bottom:10px"><a href="#/football" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
+  <div style="margin-bottom:10px"><a href="${m.sport==="Soccer"?"#/football":"#/live"}" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
     <div class="comp">${esc(m.comp)}${live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+m.time}</div>
     <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
@@ -1015,7 +1034,7 @@ function pageMatch(id){
     </div>
     <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
   </div>
-  <div class="var-banner${varActive?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
+  <div class="var-banner${(varActive && m.id===MATCHES[0].id)?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
   <div class="mtabs">
     ${groups.map(g=>{
       const susp = m._markets[g].every(mk=>mk.suspended || isSuspended(m,mk.label));
