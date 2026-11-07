@@ -89,7 +89,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 /* odds buttons */
 .odds{display:flex;flex-direction:column;gap:2px;background:var(--odd-bg);border:1px solid transparent;border-radius:9px;padding:7px 8px;min-width:0;text-align:left;transition:background .15s,border-color .15s}
 .odds:hover{background:var(--odd-hover)}
-.odds .lb{font-size:11px;color:#c6d0df;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word}
+.odds .lb{font-size:11px;color:#c6d0df;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:normal;word-break:normal}
 /* Round 3 (item 14): the follow ★ must be a real, tappable target — 28px
    minimum — not a 2px-padding glyph inside a filter chip. */
 .starbtn{min-width:28px;min-height:28px;padding:4px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -117,7 +117,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .sr-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px}
 .sr-item:hover{border-color:var(--cyan-dim)}
 .sr-item .tag{font-size:10px;font-weight:800;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:var(--card3);color:var(--cyan);flex:0 0 auto}
-.sr-item .nm{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-item .nm{font-weight:600;flex:1;min-width:0;overflow-wrap:normal;word-break:normal}
 .sr-item .meta{color:var(--muted);font-size:12px}
 /* Round 4: at 390px the long meta (match · market · comp) squeezed the name
    until it truncated ("Over 2.5" cut off) — let the meta drop to its own
@@ -143,7 +143,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .mrow .when{flex:0 0 70px;font-size:12px;color:var(--muted);line-height:1.25;white-space:nowrap}
 .mrow .when b{display:block;color:var(--text);font-size:13px}
 .mrow .teams{flex:1;min-width:0}
-.mrow .teams .tm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .teams .tm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;overflow-wrap:normal;word-break:normal}
 .mrow .teams .tm .sc{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums;padding-left:8px}
 .mrow .teams .tm+.tm{margin-top:3px}
 /* team monogram: 2-3 letter code in a small coloured circle (no real club logos — sample data) */
@@ -151,7 +151,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .feat .mono{width:24px;height:24px;font-size:10px}
 .pill .mono{width:20px;height:20px;font-size:9px}
 .sr-item .mono{width:20px;height:20px;font-size:9px}
-.mrow .modds{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,64px);gap:6px}
+.mrow .modds{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,92px);gap:6px}
 .mrow .mrow-more{color:var(--muted);font-size:12px;white-space:nowrap}
 @media(max-width:560px){
   .mrow .mrow-more{display:none}
@@ -194,7 +194,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 @media(max-width:480px){.topbar .logo .wave{display:none}}
 @media(max-width:420px){.btn-login{display:none}}
 .scoreboard .team{flex:1;max-width:220px;min-width:0}
-.scoreboard .team .nm{overflow-wrap:break-word}
+.scoreboard .team .nm{overflow-wrap:normal;word-break:normal}
 .scoreboard .score{flex:0 0 auto}
 .scoreboard .team .mono{width:52px;height:52px;font-size:15px;margin-bottom:6px}
 .scoreboard .team .nm{font-weight:700;font-size:16px}
@@ -392,6 +392,27 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 
 <script>
 "use strict";
+/* Round 5 — BUILD VERSION. Returning visitors on a stale build must get the
+   new build automatically: if the stored version is missing (written by a
+   build older than versioning, e.g. Round 4) or older than this build, the
+   stored state was written by an older build — invalidate it and start from
+   the seeded demo (balance 1,250 USDT, seeded My bets). This runs BEFORE any
+   state is read from localStorage. The version is also shown in the footer
+   ("Build v5") so a reviewer can tell which build is actually rendering. */
+const BUILD_VERSION = "5";
+(function(){
+  let stored = null;
+  try{ stored = localStorage.getItem("hb-proto-version"); }catch(e){}
+  if(stored !== BUILD_VERSION){
+    try{ ["follows","mybets","balance"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
+  }
+  try{ localStorage.setItem("hb-proto-version", BUILD_VERSION); }catch(e){}
+})();
+/* Round 5 — JUDGE PANEL. The "PROTOTYPE — PREVIEW EVERY STATE" control panel
+   is a demo control, not part of the public entry: it only renders when the
+   URL carries ?judge=1. The states themselves still occur naturally (live
+   tick, suspension, failed bet) without the panel. */
+const JUDGE_MODE = (()=>{ try{ return new URLSearchParams(location.search).get("judge")==="1"; }catch(e){ return false; } })();
 /* ================= Sample data (demo only — no real money) ================= */
 /* Team monograms: 2–3 letter code + one consistent colour per team.
    No real club logos — sample data only (contest brief). */
@@ -435,7 +456,8 @@ const SCORERS = {
   Leverkusen:["LEV No. 10","LEV No. 22"],
   Leipzig:["LEI No. 30","LEI No. 11"],
   Frankfurt:["FRA No. 9"],
-  Wolfsburg:["WOL No. 9"]
+  Wolfsburg:["WOL No. 9"],
+  Juventus:["JUV No. 9","JUV No. 10"]
 };
 const PLAYERS = ["ARS No. 9","ARS No. 7","MCI No. 9","LIV No. 11","RMA No. 9","CHE No. 20","BAR No. 9","BAY No. 9","TOT No. 7","LEV No. 10"];
 const PLAYER_TEAM = {"ARS No. 9":"Arsenal","ARS No. 7":"Arsenal","MCI No. 9":"Manchester City","LIV No. 11":"Liverpool","RMA No. 9":"Real Madrid","CHE No. 20":"Chelsea","BAR No. 9":"Barcelona","BAY No. 9":"Bayern Munich","TOT No. 7":"Tottenham","LEV No. 10":"Leverkusen"};
@@ -445,11 +467,11 @@ let MID = 0;
 function mkMatch(o){ return Object.assign({id:"m"+(++MID), sport:"Soccer", status:"upcoming", minute:0, hs:null, as:null, odds:{h:2.00,d:3.40,a:3.60}, markets:null}, o); }
 
 const MATCHES = [
-  mkMatch({comp:"Premier League", home:"Arsenal", away:"Brighton & Hove Albion", status:"live", minute:52, hs:1, as:0, odds:{h:1.30,d:4.60,a:11.00}, featured:true, followed:true}),
-  mkMatch({comp:"Premier League", home:"Manchester City", away:"Chelsea", status:"live", minute:63, hs:2, as:0, odds:{h:1.45,d:4.50,a:7.00}}),
-  mkMatch({comp:"LaLiga", home:"Real Madrid", away:"Barcelona", status:"live", minute:67, hs:2, as:1, odds:{h:2.10,d:3.60,a:3.40}}),
-  mkMatch({comp:"Serie A", home:"Inter", away:"Juventus", status:"live", minute:34, hs:0, as:0, odds:{h:2.30,d:3.10,a:3.40}}),
-  mkMatch({comp:"Bundesliga", home:"Bayern Munich", away:"Dortmund", status:"live", minute:71, hs:3, as:0, odds:{h:1.55,d:4.20,a:6.00}}),
+  mkMatch({comp:"Premier League", home:"Arsenal", away:"Brighton & Hove Albion", status:"live", minute:52, hs:1, as:0, odds:{h:1.30,d:4.60,a:11.00}, featured:true, followed:true, scorers:[{p:"ARS No. 9",min:31,half:1}], ht:{hs:1,as:0}, corners:7, cards:2}),
+  mkMatch({comp:"Premier League", home:"Manchester City", away:"Chelsea", status:"live", minute:63, hs:2, as:0, odds:{h:1.45,d:4.50,a:7.00}, scorers:[{p:"MCI No. 9",min:18,half:1},{p:"MCI No. 47",min:55,half:2}], ht:{hs:1,as:0}, corners:9, cards:3}),
+  mkMatch({comp:"LaLiga", home:"Real Madrid", away:"Barcelona", status:"live", minute:67, hs:2, as:1, odds:{h:2.10,d:3.60,a:3.40}, scorers:[{p:"RMA No. 9",min:22,half:1},{p:"RMA No. 7",min:58,half:2},{p:"BAR No. 9",min:64,half:2}], ht:{hs:1,as:0}, corners:11, cards:4}),
+  mkMatch({comp:"Serie A", home:"Inter", away:"Juventus", status:"live", minute:34, hs:0, as:0, odds:{h:2.30,d:3.10,a:3.40}, corners:3, cards:0}),
+  mkMatch({comp:"Bundesliga", home:"Bayern Munich", away:"Dortmund", status:"live", minute:71, hs:3, as:0, odds:{h:1.55,d:4.20,a:6.00}, scorers:[{p:"BAY No. 9",min:12,half:1},{p:"BAY No. 42",min:38,half:1},{p:"BAY No. 10",min:66,half:2}], ht:{hs:2,as:0}, corners:8, cards:2}),
   mkMatch({comp:"Premier League", home:"Liverpool", away:"Manchester United", status:"upcoming", time:"16:30", date:"Sun, Nov 8", odds:{h:1.65,d:4.00,a:4.13}, featured:true}),
   mkMatch({comp:"Champions League", home:"Arsenal", away:"Inter", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:1.55,d:3.50,a:4.00}, featured:true}),
   mkMatch({comp:"Champions League", home:"Real Madrid", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:2.20,d:3.70,a:2.99}, featured:true}),
@@ -647,23 +669,98 @@ function marketsFor(m){
   };
   // Impossible markets (item 7): a live match past a point in the game can
   // no longer offer a market whose outcome is already decided. Decide from
-  // the match's LIVE minute + score — never from the seeded minute alone —
-  // so the list follows the clock as the match plays (the 1s interval
-  // rebuilds the markets when the live minute crosses 30'/45').
+  // the match's LIVE minute + score + scorers + half-time score — never from
+  // the seeded minute alone — so the list follows the clock as the match
+  // plays (the 1s interval rebuilds the markets when the live minute
+  // crosses 30'/45'). Round 5: the gate covers EVERY group, not just the
+  // six time/score labels — a decided SELECTION is removed (e.g. a player
+  // who already scored is gone from Anytime goalscorer), and a market whose
+  // every option is decided is removed whole. Handicaps are never decided
+  // mid-match (any final margin is still mathematically possible) — they
+  // close at full time like everything else.
   if(m.status==="live"){
     const min = curMin(m), goals = (m.hs || 0) + (m.as || 0);
+    const scorers = m.scorers || [];
+    const scored = new Set(scorers.map(s=>s.p));
+    const goalsOf = p => scorers.filter(s=>s.p===p).length;
+    const scored2nd = new Set(scorers.filter(s=>s.half===2).map(s=>s.p));
+    const ht = (min>45 && m.ht) ? m.ht : null; // half-time score, known once HT is over
+    const htWin = ht ? (ht.hs>ht.as?"H":ht.hs<ht.as?"A":"D") : null;
+    const h2hs = ht ? Math.max(0,(m.hs||0)-ht.hs) : 0; // 2nd-half goals (home)
+    const h2as = ht ? Math.max(0,(m.as||0)-ht.as) : 0; // 2nd-half goals (away)
+    const h2 = h2hs + h2as, htGoals = ht ? ht.hs+ht.as : 0;
     const deadLabel = label =>
       (label === "1st half result" && min > 45) ||
       (label === "1st half total goals 0.5" && min > 45) ||
       (label === "First corner" && min > 45) ||
       (label === "First goal before 30:00" && min > 30) ||
       (label === "Team to score first" && goals > 0) ||
-      (label === "First goalscorer" && goals > 0);
-    for(const list of Object.values(groups)) for(const mk of list){
-      // Exact score 0-0 is impossible once a goal exists — drop just that line.
-      if(mk.label === "Exact score" && goals > 0) mk.opts = mk.opts.filter(op => op.n !== "0-0");
+      (label === "First goalscorer" && goals > 0) ||
+      // BTTS is decided once both teams have scored (Yes won, No lost).
+      (label === "Both teams to score" && (m.hs||0)>0 && (m.as||0)>0) ||
+      // A "win to nil" is decided once the opponent has scored.
+      (label === (m.home+" to win to nil") && (m.as||0)>0) ||
+      // BTTS & total goals 2.5: decided once both scored AND the total passed 2.5.
+      (label === "BTTS & total goals 2.5" && (m.hs||0)>0 && (m.as||0)>0 && goals>2.5) ||
+      // "Both halves — home to win": dead if home did NOT win the 1st half.
+      (label === ("Both halves — "+m.home+" to win") && htWin && htWin!=="H") ||
+      // "Half with most goals": dead once the 2nd half already has more goals.
+      (label === "Half with most goals" && ht && h2 > htGoals) ||
+      // 2nd-half BTTS (both spellings): dead once both scored in the 2nd half.
+      ((label === "Both teams to score in 2nd half" || label === "2nd half — both teams to score") && h2hs>0 && h2as>0) ||
+      // 2nd-half total goals 1.5: dead once the 2nd half already passed 1.5.
+      (label === "2nd half total goals 1.5" && h2>1.5);
+    // Total-goals lines: once the total passed the line, Over is won and
+    // Under is lost — the whole market is decided.
+    const ouLine = label => { const mm = label.match(/^Total goals (\d+(?:\.\d+)?)$/); return mm ? parseFloat(mm[1]) : null; };
+    for(const g of Object.keys(groups)){
+      groups[g] = groups[g].filter(mk=>{
+        if(deadLabel(mk.label)) return false;
+        const line = ouLine(mk.label);
+        if(line!==null && goals>line) return false;
+        if(mk.label === (m.home+" total goals") && (m.hs||0)>1.5) return false;
+        if(mk.label === (m.away+" total goals") && (m.as||0)>0.5) return false;
+        // Total corners / cards: decided once the count passed the line.
+        if(mk.type==="corn" || mk.type==="cards"){
+          let ln = null, cnt = 0;
+          if(mk.label==="Total corners"){ ln=9.5; cnt=m.corners||0; }
+          else if(mk.label==="Total cards"){ ln=3.5; cnt=m.cards||0; }
+          else { const cm = mk.label.match(/(\d+(?:\.\d+)?)$/); if(cm){ ln=parseFloat(cm[1]); cnt = mk.type==="corn" ? (m.corners||0) : (m.cards||0); } }
+          if(ln!==null && cnt>ln) return false;
+        }
+        return true;
+      });
     }
-    for(const g of Object.keys(groups)) groups[g] = groups[g].filter(mk => !deadLabel(mk.label));
+    // Option-level gating: a decided SELECTION is removed, the market stays
+    // if any live option remains.
+    for(const list of Object.values(groups)) for(const mk of list){
+      if(mk.label === "Exact score"){
+        // A final score must have at least the goals already scored.
+        mk.opts = mk.opts.filter(op=>{ const p=op.n.split("-"); return (+p[0])>=(m.hs||0) && (+p[1])>=(m.as||0); });
+      }
+      if(mk.label === "Half-time / Full-time" && htWin){
+        // The 1st-half leg is already decided — keep only options whose HT
+        // leg matches the actual half-time result.
+        mk.opts = mk.opts.filter(op=>{
+          const leg = op.n.split(" / ")[0];
+          return (htWin==="H" && leg===m.home) || (htWin==="D" && leg==="Draw") || (htWin==="A" && leg===m.away);
+        });
+      }
+      if(mk.label === "Anytime goalscorer"){
+        // A player who already scored has already won this bet.
+        mk.opts = mk.opts.filter(op=>!scored.has(op.n));
+      }
+      if(mk.label === "To score 2+ goals"){
+        // A player who already has 2 goals has already won this bet.
+        mk.opts = mk.opts.filter(op=>goalsOf(op.n)<2);
+      }
+      if(mk.label === "To score in 2nd half"){
+        mk.opts = mk.opts.filter(op=>!scored2nd.has(op.n));
+      }
+    }
+    // Markets whose options were all decided are removed whole (an empty
+    // market must never render).
+    for(const g of Object.keys(groups)) groups[g] = groups[g].filter(mk=>mk.opts.length>0);
   }
   return groups;
 }
@@ -945,10 +1042,10 @@ function previewOddsChanged(){
   toast("⚠️ Odds changed on "+s.sel+" — accept the new price before placing", "err");
 }
 function previewBoxHTML(){
-  // Round 4: a "states seen" checklist (N/8) — the rival's 5th page shows one
-  // and it lifted their States score; ours tracks the states as they actually
-  // happen (live tick, accept, suspend, place, fail, cash out, over-balance).
-  // In-memory per session; the count updates in place via markState.
+  // Round 5: the judge panel is a demo control, not part of the public entry
+  // — it only renders when the URL carries ?judge=1. The states themselves
+  // still occur naturally (live tick, suspension, failed bet) without it.
+  if(!JUDGE_MODE) return "";
   return `<div class="preview-box">
     <div class="preview-title">🧪 Prototype — Preview every state</div>
     <div class="preview-sub">Judge controls — these trigger the real states, not screenshots.</div>
@@ -971,17 +1068,41 @@ setTimeout(()=>{
   toast("📺 VAR check — Match result suspended (Arsenal v Brighton)", "err");
   setTimeout(()=>{ varActive=false; if(location.hash.startsWith("#/match")) render(); }, 20000);
 }, 75000);
-// Live clocks tick every second
+// Live clocks tick every second. Round 5: ONE clock source per match — every
+// display carries the match id (data-clock-match / data-clock-min-match) and
+// refreshClocks() derives all of them from curMin(m) / curSec() in one pass,
+// so Home, Live, Football and the Match page can never disagree and no
+// display stalls between navigations. The previous bug: list rows carried a
+// stale seeded minute in a data attribute and only updated when the 1s
+// interval fired on that page — a backgrounded tab (throttled timers) showed
+// an old minute. refreshClocks() also runs on visibilitychange/focus/
+// pageshow, so a tab that was backgrounded snaps to the correct minute the
+// moment it returns. The clock is still 1× real time, capped at 90'
+// (Round 4), and never derived from wall-clock time persisted across sessions.
+function refreshClocks(){
+  $$("[data-clock-match]").forEach(el=>{
+    const m = MATCHES.find(x=>x.id===el.dataset.clockMatch); if(!m) return;
+    el.textContent = curMin(m)+"′ "+String(curSec()).padStart(2,"0")+"″";
+  });
+  $$("[data-clock-min-match]").forEach(el=>{
+    const m = MATCHES.find(x=>x.id===el.dataset.clockMinMatch); if(!m) return;
+    el.textContent = curMin(m)+"′";
+  });
+}
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) refreshClocks(); });
+window.addEventListener("focus", refreshClocks);
+window.addEventListener("pageshow", refreshClocks);
+// Round 5: probe hook (acceptance tests only) — advance the session clock so
+// full time is observable within a test; the product itself stays 1×.
+window.__hb = {
+  version: BUILD_VERSION,
+  advanceClock(ms){ startTs -= ms; refreshClocks(); },
+  clockOf(id){ const m=MATCHES.find(x=>x.id===id); return m?curMin(m):null; },
+  isFT(id){ const m=MATCHES.find(x=>x.id===id); return m?isFT(m):null; },
+  buildMarkets(id){ const m=MATCHES.find(x=>x.id===id); return m?marketsFor(m):null; }
+};
 setInterval(()=>{
-  $$("[data-clock]").forEach(el=>{
-    const base=+el.dataset.clock, sec=Math.floor((Date.now()-startTs)/1000);
-    const min=Math.min(90, base+Math.floor(sec/60)), s=sec%60; // Round 4: never past 90'
-    el.textContent = min+"′ "+String(s).padStart(2,"0")+"″";
-  });
-  $$("[data-clock-min]").forEach(el=>{
-    const base=+el.dataset.clockMin, sec=Math.floor((Date.now()-startTs)/1000);
-    el.textContent = Math.min(90, base+Math.floor(sec/60))+"′"; // Round 4: never past 90'
-  });
+  refreshClocks();
   // Round 4 — full-time transitions + gate re-evaluation, once per second:
   // (a) when a live soccer match's capped minute reaches 90', it ends — mark
   // it FT and re-render once so live lists, counts and the match page show
@@ -1334,6 +1455,13 @@ function myBetsHTML(tab){
     </div>`;
   }).join("");
 }
+// Round 5: visible build marker — every footer shows which build is actually
+// rendering, so a reviewer can tell a stale build from the new one. Called
+// after every render (page + slip/panel), because both rebuild footers. The
+// .build-v guard prevents double-stamping the same footer.
+function stampVersion(){
+  $$(".footer-note").forEach(el=>{ if(!el.querySelector(".build-v")) el.insertAdjacentHTML("beforeend", ` <span class="build-v" style="color:var(--muted2)">· Build v${BUILD_VERSION}</span>`); });
+}
 function renderSlip(){
   syncSlipMsg(); // derived messages recompute (and clear) before anything renders
   // Preserve stake-input focus/caret across the re-render: slipHTML rebuilds
@@ -1362,6 +1490,7 @@ function renderSlip(){
     const ni = document.querySelector(`${focusCtx.scope} .slip-item[data-slip-key="${CSS.escape(focusCtx.key)}"] input`);
     if(ni){ ni.focus(); try{ ni.setSelectionRange(focusCtx.pos, focusCtx.pos); }catch(e){} }
   }
+  stampVersion();
 }
 function renderPanel(){
   const p=$("#panel"); if(!p) return;
@@ -1439,7 +1568,7 @@ function matchRow(m, showMore, mode){
   // quarter; soccer shows the ticking minute.
   const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></div>`
     : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock">${esc((m.period||"").split(" ")[0])}</div>`
-    : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${curMin(m)}′</div>`;
+    : `<span class="live-badge">Live</span><div class="clock" data-clock-min-match="${m.id}">${curMin(m)}′</div>`;
   const when = ft ? `<span class="live-badge" style="background:var(--muted2)">FT</span>` : live ? liveWhen : `<b>${m.time}</b>${m.date}`;
   const score = (live || ft) ? `<span class="sc">${m.hs}</span>` : "";
   const score2 = (live || ft) ? `<span class="sc">${m.as}</span>` : "";
@@ -1471,7 +1600,7 @@ function featCard(m){
     : !live ? `<span>${esc(m.date)} · ${m.time}</span>`
     : m.sport==="Tennis" ? `<span><span class="live-badge">Live</span> <span class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span></span>`
     : m.sport==="Basketball" ? `<span><span class="live-badge">Live</span> <span class="clock">${esc((m.period||"").split(" ")[0])}</span></span>`
-    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${curMin(m)}′</span></span>`;
+    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min-match="${m.id}">${curMin(m)}′</span></span>`;
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
     <div class="top"><span>${esc(m.comp)}</span>${clockHtml}</div>
     <div class="tm">${crest(m.home)}${esc(m.home)}<span class="sc">${(live||ft)?m.hs:""}</span></div>
@@ -1597,17 +1726,19 @@ function pageLive(){
   const live=MATCHES.filter(isLiveNow);
   const finished=MATCHES.filter(isFT); // Round 4: ended matches leave the live list but stay visible as Full time
   const filtered=live.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
-  // Round 4: comp chips are sport-aware — a comp from another sport (e.g.
-  // NBA while Tennis is selected) used to be offered, then filtered the
-  // whole page (and the fallback) to nothing.
-  const comps=[...new Set(live.filter(m=>liveFilter.sport==="All"||m.sport===liveFilter.sport).map(m=>m.comp))];
+  // Round 5: comp chips list EVERY competition of the selected sport (live
+  // + upcoming) — deriving them from live matches only hid competitions
+  // with nothing live (Champions League: 5 upcoming, 0 live) and the chip
+  // never came back, even after Reset.
+  const comps=[...new Set(MATCHES.filter(m=>liveFilter.sport==="All"||m.sport===liveFilter.sport).map(m=>m.comp))];
   let body="";
   if(!filtered.length){
-    // Round 4: the Starting-soon fallback must never be an empty list when
+    // Round 5: the Starting-soon fallback must never be an empty list when
     // upcoming matches exist for the sport — relax the comp filter first.
     const soonStrict=MATCHES.filter(m=>m.status==="upcoming"&&(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp)).slice(0,6);
     const soon=soonStrict.length?soonStrict:MATCHES.filter(m=>m.status==="upcoming"&&(liveFilter.sport==="All"||m.sport===liveFilter.sport)).slice(0,6);
-    body=`<div class="card empty"><div class="big">📺</div><h3>Nothing live in ${esc(liveFilter.sport==="All"?"this view":liveFilter.sport)}${liveFilter.comp!=="All"?" · "+esc(liveFilter.comp):""} right now</h3><p>These matches are starting soon instead.</p></div>
+    const where = liveFilter.comp!=="All" ? liveFilter.comp : (liveFilter.sport==="All"?"this view":liveFilter.sport);
+    body=`<div class="card empty"><div class="big">📺</div><h3>Nothing live in ${esc(where)} — starting soon instead</h3><p>These matches are starting soon instead.</p></div>
     <div class="sec-head"><h2>Starting soon</h2></div>
     <div class="card">${soon.length?soon.map(m=>matchRow(m)).join(""):'<div class="slip-empty">No upcoming matches for this filter.</div>'}</div>`;
   } else {
@@ -1670,7 +1801,7 @@ function pageMatch(id){
     : !live ? `<span class="clock">${esc(m.date||"")}</span>`
     : m.sport==="Tennis" ? `<span class="clock">${esc(m.setScore||"Sets")} · Set ${((m.setScore||"").split(",").length)+1} <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span>`
     : m.sport==="Basketball" ? `<span class="clock">${esc(m.period||"")}</span>`
-    : `<span class="clock" data-clock="${m.minute}">${curMin(m)}′ ${String(curSec()).padStart(2,"0")}″</span>`;
+    : `<span class="clock" data-clock-match="${m.id}">${curMin(m)}′ ${String(curSec()).padStart(2,"0")}″</span>`;
   const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
   const mkts=m._markets[matchTab];
   const tl = TIMELINE[m.id];
@@ -1737,7 +1868,7 @@ function pageBets(){
   <details class="demo-tips">
     <summary>💡 Prototype tips — how to see every state</summary>
     <ul>
-      <li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons below the slip — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>
+      ${JUDGE_MODE?`<li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons below the slip — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>`:`<li><b>States happen live:</b> odds move every few seconds, markets suspend briefly, and a bet can fail — watch the slip and My bets as you play.</li>`}
       <li><b>Odds moving:</b> prices nudge every few seconds and flash green/red — on this page and the match page.</li>
       <li><b>Odds changed:</b> leave a selection in the slip; when its price moves you'll see “Odds changed” and must tap <b>Accept</b> before placing.</li>
       <li><b>Suspended:</b> on the Arsenal match page, the <b>Corners &amp; cards</b> group and <b>Next goal</b> are suspended (locked). Live markets also suspend briefly from time to time — a suspended selection in the slip can't be placed.</li>
