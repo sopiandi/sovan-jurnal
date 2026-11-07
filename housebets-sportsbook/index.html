@@ -126,7 +126,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .mrow{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer}
 .mrow:last-child{border-bottom:none}
 .mrow:hover{background:rgba(255,255,255,.02)}
-.mrow .when{flex:0 0 52px;font-size:12px;color:var(--muted);line-height:1.25}
+.mrow .when{flex:0 0 70px;font-size:12px;color:var(--muted);line-height:1.25;white-space:nowrap}
 .mrow .when b{display:block;color:var(--text);font-size:13px}
 .mrow .teams{flex:1;min-width:0}
 .mrow .teams .tm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -430,23 +430,23 @@ const MATCHES = [
   mkMatch({comp:"Serie A", home:"Inter", away:"Juventus", status:"live", minute:34, hs:0, as:0, odds:{h:2.30,d:3.10,a:3.40}}),
   mkMatch({comp:"Bundesliga", home:"Bayern Munich", away:"Dortmund", status:"live", minute:71, hs:3, as:0, odds:{h:1.55,d:4.20,a:6.00}}),
   mkMatch({comp:"Ligue 1", home:"PSG", away:"Marseille", status:"live", minute:58, hs:1, as:1, odds:{h:1.70,d:3.80,a:5.00}}),
-  mkMatch({comp:"Premier League", home:"Liverpool", away:"Manchester United", status:"upcoming", time:"16:30", date:"Sun, Oct 18", odds:{h:1.65,d:4.00,a:4.13}, featured:true}),
-  mkMatch({comp:"Champions League", home:"Arsenal", away:"Inter", status:"upcoming", time:"20:00", date:"Tue, Oct 20", odds:{h:1.55,d:3.50,a:4.00}, featured:true}),
-  mkMatch({comp:"Champions League", home:"Real Madrid", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Tue, Oct 20", odds:{h:2.20,d:3.70,a:2.99}, featured:true}),
-  mkMatch({comp:"Premier League", home:"Manchester City", away:"Tottenham", status:"upcoming", time:"14:00", date:"Sun, Oct 18", odds:{h:1.50,d:4.50,a:5.25}, featured:true}),
-  mkMatch({comp:"Premier League", home:"Napoli", away:"Milan", status:"upcoming", time:"17:00", date:"Sun, Oct 18", odds:{h:2.05,d:3.50,a:3.60}}),
-  mkMatch({comp:"LaLiga", home:"Atlético Madrid", away:"Sevilla", status:"upcoming", time:"18:30", date:"Sun, Oct 18", odds:{h:1.60,d:3.90,a:6.00}}),
-  mkMatch({comp:"LaLiga", home:"Valencia", away:"Real Sociedad", status:"upcoming", time:"21:00", date:"Sun, Oct 18", odds:{h:2.70,d:3.30,a:2.70}}),
-  mkMatch({comp:"Serie A", home:"Roma", away:"Lazio", status:"upcoming", time:"19:45", date:"Sun, Oct 18", odds:{h:2.40,d:3.20,a:3.10}}),
-  mkMatch({comp:"Bundesliga", home:"Leverkusen", away:"Leipzig", status:"upcoming", time:"17:30", date:"Sun, Oct 18", odds:{h:1.95,d:3.80,a:3.80}}),
-  mkMatch({comp:"Bundesliga", home:"Frankfurt", away:"Wolfsburg", status:"upcoming", time:"19:30", date:"Sun, Oct 18", odds:{h:2.10,d:3.60,a:3.40}}),
-  mkMatch({comp:"Champions League", home:"PSG", away:"Manchester City", status:"upcoming", time:"20:00", date:"Wed, Oct 21", odds:{h:2.60,d:3.60,a:2.60}}),
-  mkMatch({comp:"Champions League", home:"Barcelona", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Wed, Oct 21", odds:{h:2.45,d:3.70,a:2.80}}),
-  mkMatch({comp:"Champions League", home:"Dortmund", away:"Liverpool", status:"upcoming", time:"20:00", date:"Wed, Oct 21", odds:{h:3.10,d:3.60,a:2.30}}),
+  mkMatch({comp:"Premier League", home:"Liverpool", away:"Manchester United", status:"upcoming", time:"16:30", date:"Sun, Nov 8", odds:{h:1.65,d:4.00,a:4.13}, featured:true}),
+  mkMatch({comp:"Champions League", home:"Arsenal", away:"Inter", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:1.55,d:3.50,a:4.00}, featured:true}),
+  mkMatch({comp:"Champions League", home:"Real Madrid", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:2.20,d:3.70,a:2.99}, featured:true}),
+  mkMatch({comp:"Premier League", home:"Manchester City", away:"Tottenham", status:"upcoming", time:"14:00", date:"Sun, Nov 8", odds:{h:1.50,d:4.50,a:5.25}, featured:true}),
+  mkMatch({comp:"Serie A", home:"Napoli", away:"Milan", status:"upcoming", time:"17:00", date:"Sun, Nov 8", odds:{h:2.05,d:3.50,a:3.60}}),
+  mkMatch({comp:"LaLiga", home:"Atlético Madrid", away:"Sevilla", status:"upcoming", time:"18:30", date:"Sun, Nov 8", odds:{h:1.60,d:3.90,a:6.00}}),
+  mkMatch({comp:"LaLiga", home:"Valencia", away:"Real Sociedad", status:"upcoming", time:"21:00", date:"Sun, Nov 8", odds:{h:2.70,d:3.30,a:2.70}}),
+  mkMatch({comp:"Serie A", home:"Roma", away:"Lazio", status:"upcoming", time:"19:45", date:"Sun, Nov 8", odds:{h:2.40,d:3.20,a:3.10}}),
+  mkMatch({comp:"Bundesliga", home:"Leverkusen", away:"Leipzig", status:"upcoming", time:"17:30", date:"Sun, Nov 8", odds:{h:1.95,d:3.80,a:3.80}}),
+  mkMatch({comp:"Bundesliga", home:"Frankfurt", away:"Wolfsburg", status:"upcoming", time:"19:30", date:"Sun, Nov 8", odds:{h:2.10,d:3.60,a:3.40}}),
+  mkMatch({comp:"Champions League", home:"PSG", away:"Manchester City", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:2.60,d:3.60,a:2.60}}),
+  mkMatch({comp:"Champions League", home:"Barcelona", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:2.45,d:3.70,a:2.80}}),
+  mkMatch({comp:"Champions League", home:"Dortmund", away:"Liverpool", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:3.10,d:3.60,a:2.30}}),
   mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"Alcaraz", away:"Sinner", status:"live", minute:0, hs:1, as:1, setScore:"6-4, 3-6", odds:{h:1.85,d:null,a:1.95}}),
-  mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"Medvedev", away:"Zverev", status:"upcoming", time:"19:00", date:"Sun, Oct 18", odds:{h:2.10,d:null,a:1.75}}),
+  mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"Medvedev", away:"Zverev", status:"upcoming", time:"19:00", date:"Sun, Nov 8", odds:{h:2.10,d:null,a:1.75}}),
   mkMatch({sport:"Basketball", comp:"NBA", home:"Lakers", away:"Celtics", status:"live", minute:0, hs:78, as:71, period:"Q3 08:24", odds:{h:1.60,d:null,a:2.30}}),
-  mkMatch({sport:"Basketball", comp:"NBA", home:"Warriors", away:"Nuggets", status:"upcoming", time:"22:00", date:"Sun, Oct 18", odds:{h:1.90,d:null,a:1.90}}),
+  mkMatch({sport:"Basketball", comp:"NBA", home:"Warriors", away:"Nuggets", status:"upcoming", time:"22:00", date:"Sun, Nov 8", odds:{h:1.90,d:null,a:1.90}}),
 ];
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
 const SPORTS = ["Soccer","Tennis","Basketball","Baseball","American Football","Esports"];
