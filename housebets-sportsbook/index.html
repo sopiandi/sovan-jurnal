@@ -374,7 +374,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 /* ================= Sample data (demo only — no real money) ================= */
 /* Team monograms: 2–3 letter code + one consistent colour per team.
    No real club logos — sample data only (contest brief). */
-const CREST = {Arsenal:["ARS","#d00027"],Brighton:["BHA","#0057b8"],"Brighton & Hove Albion":["BHA","#0057b8"],Liverpool:["LIV","#c8102e"],"Manchester United":["MUN","#da291c"],Inter:["INT","#0068a8"],Chelsea:["CHE","#034694"],"Real Madrid":["RMA","#a67c00"],"Bayern Munich":["BAY","#dc052d"],Tottenham:["TOT","#132257"],"Manchester City":["MCI","#6cabdd"],Napoli:["NAP","#12a0d7"],Milan:["MIL","#c8102e"],Barcelona:["BAR","#a50044"],PSG:["PSG","#004170"],Dortmund:["DOR","#fde100"],Sevilla:["SEV","#d00027"],"Atlético Madrid":["ATM","#cb3524"],Valencia:["VAL","#f57c00"],"Real Sociedad":["SOC","#0067b1"],Roma:["ROM","#f0bc42"],Lazio:["LAZ","#87d8f7"],Leverkusen:["LEV","#e32219"],Leipzig:["LEI","#dd0741"],Frankfurt:["FRA","#e1000f"],Wolfsburg:["WOL","#65b32e"],Juventus:["JUV","#222222"],Marseille:["MAR","#2faae0"],"T. Halvorsen":["HAL","#5b7fa6"],"R. Okafor":["OKA","#c8102e"],"D. Ferreira":["FER","#e8a33d"],"L. Moreau":["MOR","#3d7eaa"],Lakers:["LAL","#552583"],Celtics:["BOS","#007a33"],Warriors:["GSW","#1d428a"],Nuggets:["DEN","#0e2240"]};
+const CREST = {Arsenal:["ARS","#d00027"],Brighton:["BHA","#0057b8"],"Brighton & Hove Albion":["BHA","#0057b8"],Liverpool:["LIV","#c8102e"],"Manchester United":["MUN","#da291c"],Inter:["INT","#0068a8"],Chelsea:["CHE","#034694"],"Real Madrid":["RMA","#a67c00"],"Bayern Munich":["BAY","#dc052d"],Tottenham:["TOT","#132257"],"Manchester City":["MCI","#6cabdd"],Napoli:["NAP","#12a0d7"],Milan:["MIL","#c8102e"],Barcelona:["BAR","#a50044"],PSG:["PSG","#004170"],Dortmund:["DOR","#fde100"],Sevilla:["SEV","#d00027"],"Atlético Madrid":["ATM","#cb3524"],Valencia:["VAL","#f57c00"],"Real Sociedad":["SOC","#0067b1"],Roma:["ROM","#f0bc42"],Lazio:["LAZ","#87d8f7"],Leverkusen:["LEV","#e32219"],Leipzig:["LEI","#dd0741"],Frankfurt:["FRA","#e1000f"],Wolfsburg:["WOL","#65b32e"],Juventus:["JUV","#222222"],"T. Halvorsen":["HAL","#5b7fa6"],"R. Okafor":["OKA","#c8102e"],"D. Ferreira":["FER","#e8a33d"],"L. Moreau":["MOR","#3d7eaa"],Lakers:["LAL","#552583"],Celtics:["BOS","#007a33"],Warriors:["GSW","#1d428a"],Nuggets:["DEN","#0e2240"]};
 const LIGHT_BG = new Set(["DOR","ROM","LAZ","MCI","NAP","FER"]); // dark text on light crests
 function crest(t){
   const c = CREST[t];
@@ -429,7 +429,6 @@ const MATCHES = [
   mkMatch({comp:"LaLiga", home:"Real Madrid", away:"Barcelona", status:"live", minute:67, hs:2, as:1, odds:{h:2.10,d:3.60,a:3.40}}),
   mkMatch({comp:"Serie A", home:"Inter", away:"Juventus", status:"live", minute:34, hs:0, as:0, odds:{h:2.30,d:3.10,a:3.40}}),
   mkMatch({comp:"Bundesliga", home:"Bayern Munich", away:"Dortmund", status:"live", minute:71, hs:3, as:0, odds:{h:1.55,d:4.20,a:6.00}}),
-  mkMatch({comp:"Ligue 1", home:"PSG", away:"Marseille", status:"live", minute:58, hs:1, as:1, odds:{h:1.70,d:3.80,a:5.00}}),
   mkMatch({comp:"Premier League", home:"Liverpool", away:"Manchester United", status:"upcoming", time:"16:30", date:"Sun, Nov 8", odds:{h:1.65,d:4.00,a:4.13}, featured:true}),
   mkMatch({comp:"Champions League", home:"Arsenal", away:"Inter", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:1.55,d:3.50,a:4.00}, featured:true}),
   mkMatch({comp:"Champions League", home:"Real Madrid", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Tue, Nov 10", odds:{h:2.20,d:3.70,a:2.99}, featured:true}),
@@ -443,13 +442,13 @@ const MATCHES = [
   mkMatch({comp:"Champions League", home:"PSG", away:"Manchester City", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:2.60,d:3.60,a:2.60}}),
   mkMatch({comp:"Champions League", home:"Barcelona", away:"Bayern Munich", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:2.45,d:3.70,a:2.80}}),
   mkMatch({comp:"Champions League", home:"Dortmund", away:"Liverpool", status:"upcoming", time:"20:00", date:"Wed, Nov 11", odds:{h:3.10,d:3.60,a:2.30}}),
-  mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"D. Ferreira", away:"L. Moreau", status:"live", minute:0, hs:1, as:1, setScore:"6-4, 3-6", odds:{h:1.85,d:null,a:1.95}}),
+  mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"D. Ferreira", away:"L. Moreau", status:"live", minute:0, hs:1, as:1, setScore:"6-4, 3-6", games:[2,1], odds:{h:1.85,d:null,a:1.95}}),
   mkMatch({sport:"Tennis", comp:"ATP Shanghai", home:"T. Halvorsen", away:"R. Okafor", status:"upcoming", time:"19:00", date:"Sun, Nov 8", odds:{h:2.10,d:null,a:1.75}}),
   mkMatch({sport:"Basketball", comp:"NBA", home:"Lakers", away:"Celtics", status:"live", minute:0, hs:78, as:71, period:"Q3 08:24", odds:{h:1.60,d:null,a:2.30}}),
   mkMatch({sport:"Basketball", comp:"NBA", home:"Warriors", away:"Nuggets", status:"upcoming", time:"22:00", date:"Sun, Nov 8", odds:{h:1.90,d:null,a:1.90}}),
 ];
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
-const SPORTS = ["Soccer","Tennis","Basketball","Baseball","American Football","Esports"];
+const SPORTS = ["Soccer","Tennis","Basketball"];
 const LIVE_COUNT = MATCHES.filter(m=>m.status==="live").length;
 /* Match events for the featured live match — shirt numbers only, and consistent
    with the fixture itself (Arsenal 1–0 Brighton, 52'): the only goal is at 31'. */
@@ -582,10 +581,10 @@ let follows = store.get("follows", {comps:["Premier League"], teams:["Arsenal"]}
 let myBets = store.get("mybets", null) || {
   open:[{id:"b1", sel:"Arsenal to win", market:"Match result", match:"Arsenal v Brighton & Hove Albion", comp:"Premier League", odds:1.80, stake:20, placed:"Oct 17, 14:58", cashout:24.50, live:true}],
   settled:[
-    {id:"b2", sel:"Manchester City to win", market:"Match result", match:"Man City 2–1 Arsenal", comp:"Premier League", odds:2.10, stake:10, result:"won", ret:21.00, placed:"Oct 12, 15:02"},
-    {id:"b3", sel:"Draw", market:"Match result", match:"Liverpool 2–2 Chelsea", comp:"Premier League", odds:3.40, stake:5, result:"lost", ret:0, placed:"Oct 11, 17:30"},
-    {id:"b4", sel:"Over 2.5 goals", market:"Total goals", match:"Real Madrid 3–1 Barcelona", comp:"LaLiga", odds:1.85, stake:15, result:"won", ret:27.75, placed:"Oct 9, 20:14"},
-    {id:"b5", sel:"ARS No. 9 anytime scorer", market:"Anytime goalscorer", match:"Arsenal 3–0 Nottingham Forest", comp:"Premier League", odds:2.40, stake:10, result:"won", ret:24.00, placed:"Oct 5, 13:45"}
+    {id:"b2", sel:"Manchester City to win", market:"Match result", match:"Man City 2–1 Arsenal", comp:"Premier League", odds:2.10, stake:10, result:"won", ret:21.00, placed:"Nov 6, 15:02"},
+    {id:"b3", sel:"Draw", market:"Match result", match:"Liverpool 2–2 Chelsea", comp:"Premier League", odds:3.40, stake:5, result:"lost", ret:0, placed:"Nov 6, 17:30"},
+    {id:"b4", sel:"Over 2.5 goals", market:"Total goals", match:"Real Madrid 3–1 Barcelona", comp:"LaLiga", odds:1.85, stake:15, result:"won", ret:27.75, placed:"Nov 5, 20:14"},
+    {id:"b5", sel:"ARS No. 9 anytime scorer", market:"Anytime goalscorer", match:"Arsenal 3–0 Tottenham", comp:"Premier League", odds:2.40, stake:10, result:"won", ret:24.00, placed:"Nov 7, 13:45"}
   ]
 };
 let slip = [];            // {key, matchId, match, comp, market, sel, odds, stake, oldOdds, suspended}
@@ -798,6 +797,14 @@ setInterval(()=>{
   $$("[data-clock-min]").forEach(el=>{
     const base=+el.dataset.clockMin, sec=Math.floor((Date.now()-startTs)/1000);
     el.textContent = (base+Math.floor(sec/60))+"′";
+  });
+  // Tennis live games tick: roughly one game per 45s of session time, winners
+  // alternating, frozen once the set reaches 6–4. Never a minute for tennis.
+  $$("[data-tgames]").forEach(el=>{
+    const m=MATCHES.find(x=>x.id===el.dataset.tgames); if(!m || !m.games) return;
+    const sec=Math.floor((Date.now()-startTs)/1000);
+    const k=Math.min(7, Math.floor(sec/45));
+    el.textContent = (m.games[0]+Math.ceil(k/2))+"–"+(m.games[1]+Math.floor(k/2));
   });
 }, 1000);
 
@@ -1071,7 +1078,10 @@ function matchRow(m, showMore, mode){
   const live = m.status==="live";
   // Non-soccer rows use the sport's own market name — "Match result" is soccer-only.
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
-  const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1}</div>`
+  // Tennis rows show the live set + current-set games (ticking, see the 1s
+  // interval) — never a minute, tennis has no clock. Basketball shows the
+  // quarter; soccer shows the ticking minute.
+  const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></div>`
     : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock">${esc((m.period||"").split(" ")[0])}</div>`
     : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${m.minute}′</div>`;
   const when = live ? liveWhen : `<b>${m.time}</b>${m.date}`;
@@ -1099,8 +1109,13 @@ function matchRow(m, showMore, mode){
 function featCard(m){
   const live=m.status==="live";
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
+  // Sport-aware live clock — tennis never shows a minute (same rule as matchRow).
+  const clockHtml = !live ? `<span>${esc(m.date)} · ${m.time}</span>`
+    : m.sport==="Tennis" ? `<span><span class="live-badge">Live</span> <span class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span></span>`
+    : m.sport==="Basketball" ? `<span><span class="live-badge">Live</span> <span class="clock">${esc((m.period||"").split(" ")[0])}</span></span>`
+    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${m.minute}′</span></span>`;
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
-    <div class="top"><span>${esc(m.comp)}</span>${live?`<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${m.minute}′</span></span>`:`<span>${esc(m.date)} · ${m.time}</span>`}</div>
+    <div class="top"><span>${esc(m.comp)}</span>${clockHtml}</div>
     <div class="tm">${crest(m.home)}${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
     <div class="tm">${crest(m.away)}${esc(m.away)}<span class="sc">${live?m.as:""}</span></div>
     <div class="odds-grid">
@@ -1123,12 +1138,17 @@ function toggleFollowComp(c){
   saveAll(); render();
 }
 function sportNavHTML(active){
-  const chips=[["Home","🏠","#/home"],["Live "+LIVE_COUNT,"📺","#/live"],["Soccer","⚽","#/football"],["Tennis","🎾","#/live?sport=Tennis"],["Basketball","🏀","#/live?sport=Basketball"],["Baseball","⚾","#/live?sport=Baseball"],["American Football","🏈","#/live?sport=American Football"],["Esports","🎮","#/live?sport=Esports"]];
+  const chips=[["Home","🏠","#/home"],["Live "+LIVE_COUNT,"📺","#/live"],["Soccer","⚽","#/football"],["Tennis","🎾","#/live?sport=Tennis"],["Basketball","🏀","#/live?sport=Basketball"]];
   return `<div class="sportnav">${chips.map(([label,ic,href])=>{
     const isLive = label.startsWith("Live");
     const act = href==="#/live" ? "goLive()" : `go('${href}')`;
     return `<button class="chip ${active===label?"on":""}" onclick="${act}"><span class="ic">${ic}</span>${isLive?`Live <span class="live-n">${LIVE_COUNT}</span>`:label}</button>`;
   }).join("")}</div>`;
+}
+function liveMeta(m){ // short live label for search results — never a minute for tennis
+  if(m.sport==="Tennis") return "🔴 Live · Set "+(((m.setScore||"").split(",").length)+1);
+  if(m.sport==="Basketball") return "🔴 Live · "+(m.period||"").split(" ")[0];
+  return "🔴 Live "+m.minute+"′";
 }
 function searchResultsHTML(q){
   q=q.trim().toLowerCase(); if(q.length<2) return "";
@@ -1153,7 +1173,7 @@ function searchResultsHTML(q){
   if(!teams.length&&!comps.length&&!players.length&&!markets.length&&!matches.length&&!oddsItems.length)
     return `<div class="search-results"><div class="empty card"><div class="big">🔍</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
   let h=`<div class="search-results">`;
-  if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>`<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${m.status==="live"?"🔴 Live "+m.minute+"′":esc(m.date)+" "+m.time} · ${esc(m.comp)}</span></button>`).join(""); }
+  if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>`<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${m.status==="live"?liveMeta(m):esc(m.date)+" "+m.time} · ${esc(m.comp)}</span></button>`).join(""); }
   if(oddsItems.length){ h+=`<div class="sr-group">Odds</div>`+oddsItems.slice(0,6).map(o=>`<button class="sr-item" onclick="goMatch('${o.matchId}')"><span class="tag">Odds</span><span class="nm">${esc(o.label)}</span><span class="meta">${esc(o.sub)}</span></button>`).join(""); }
   if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
   if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
@@ -1224,7 +1244,7 @@ function pageLive(){
   <h1>Live now <span class="live-badge">● ${live.length} live</span></h1>
   <p class="muted small" style="margin:6px 0 14px">Every match in play — scores and clocks update live.</p>
   <div class="filters">
-    ${["All","Soccer","Tennis","Basketball","Baseball","American Football","Esports"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';liveFilter.comp='All';render()">${s==="All"?"All sports":s}</button>`).join("")}
+    ${["All","Soccer","Tennis","Basketball"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';liveFilter.comp='All';render()">${s==="All"?"All sports":s}</button>`).join("")}
   </div>
   <div class="filters">
     <button class="fchip ${liveFilter.comp==="All"?"on":""}" onclick="liveFilter.comp='All';render()">All competitions</button>
@@ -1268,9 +1288,10 @@ function pageMatch(id){
   if(window._pendingMatchTab && groups.includes(window._pendingMatchTab)){ matchTab=window._pendingMatchTab; }
   window._pendingMatchTab=null;
   const live=m.status==="live";
-  // Scoreboard clock: soccer ticks by the minute; tennis shows the set score, basketball the period.
+  // Scoreboard clock: soccer ticks by the minute; tennis shows the set score
+  // plus the live current-set games (ticking); basketball the period.
   const clockHTML = !live ? `<span class="clock">${esc(m.date||"")}</span>`
-    : m.sport==="Tennis" ? `<span class="clock">${esc(m.setScore||"Sets")}</span>`
+    : m.sport==="Tennis" ? `<span class="clock">${esc(m.setScore||"Sets")} · Set ${((m.setScore||"").split(",").length)+1} <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span>`
     : m.sport==="Basketball" ? `<span class="clock">${esc(m.period||"")}</span>`
     : `<span class="clock" data-clock="${m.minute}">${m.minute}′ 00″</span>`;
   const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
