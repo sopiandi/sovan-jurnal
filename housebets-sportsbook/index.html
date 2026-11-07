@@ -60,6 +60,10 @@ input,select{font-family:inherit}
 @media(min-width:900px){.main{padding:18px 22px 40px}}
 .panel{display:none;width:var(--panel-w);flex:0 0 auto;border-left:1px solid var(--border);background:var(--bg2);padding:16px 14px;position:sticky;top:var(--topbar-h);height:calc(100vh - var(--topbar-h));overflow-y:auto}
 @media(min-width:1180px){.panel{display:block}}
+/* Round 3 (item 9): the Bets page IS the slip — a visible side panel there
+   would duplicate it (two slips, two Place buttons, two My bets lists).
+   The panel stays populated in the DOM (tests read it) but is not shown. */
+body.route-bets .panel{display:none}
 
 /* ---------- Shared bits ---------- */
 h1{font-size:20px;font-weight:800;letter-spacing:-.2px}
@@ -85,7 +89,10 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 /* odds buttons */
 .odds{display:flex;flex-direction:column;gap:2px;background:var(--odd-bg);border:1px solid transparent;border-radius:9px;padding:7px 8px;min-width:0;text-align:left;transition:background .15s,border-color .15s}
 .odds:hover{background:var(--odd-hover)}
-.odds .lb{font-size:11px;color:#c6d0df;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.odds .lb{font-size:11px;color:#c6d0df;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word}
+/* Round 3 (item 14): the follow ★ must be a real, tappable target — 28px
+   minimum — not a 2px-padding glyph inside a filter chip. */
+.starbtn{min-width:28px;min-height:28px;padding:4px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .odds .vl{font-size:15px;font-weight:800;color:var(--cyan);font-variant-numeric:tabular-nums;line-height:1.15}
 .odds.sel{background:rgba(53,211,232,.16);border-color:var(--cyan)}
 .odds.sel .vl{color:var(--cyan)}
@@ -212,12 +219,13 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .slip-item.suspended{border-color:rgba(240,68,82,.55)}
 .slip-item .sel{font-weight:700;font-size:14px}
 .slip-item .mk{color:var(--muted);font-size:12px;margin-top:1px}
-.slip-item .oddsrow{display:flex;align-items:center;gap:8px;margin-top:9px}
+.slip-item .oddsrow{display:flex;align-items:center;gap:8px;margin-top:9px;min-width:0}
+.slip-item .odds-pill{flex:0 0 auto}
 .slip-item .odds-pill{background:var(--odd-bg);border-radius:8px;padding:6px 10px;font-weight:800;color:var(--cyan);font-variant-numeric:tabular-nums}
-.slip-item .stake{flex:1;display:flex;align-items:center;background:var(--odd-bg);border-radius:8px;padding:2px 6px 2px 10px;border:1px solid transparent}
+.slip-item .stake{flex:1;min-width:0;display:flex;align-items:center;background:var(--odd-bg);border-radius:8px;padding:2px 6px 2px 10px;border:1px solid transparent;overflow:hidden}
 .slip-item .stake.err{border-color:var(--red)}
-.slip-item .stake span{color:var(--muted);font-size:12px;font-weight:700}
-.slip-item .stake input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--text);font-size:15px;font-weight:700;text-align:right;padding:6px 4px;font-variant-numeric:tabular-nums}
+.slip-item .stake span{color:var(--muted);font-size:12px;font-weight:700;flex:0 0 auto}
+.slip-item .stake input{flex:1;min-width:0;width:100%;box-sizing:border-box;background:none;border:none;outline:none;color:var(--text);font-size:15px;font-weight:700;text-align:right;padding:6px 4px;font-variant-numeric:tabular-nums}
 .slip-item .ret{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;color:var(--muted)}
 .slip-item .ret b{color:var(--text);font-variant-numeric:tabular-nums}
 .slip-item .chips{display:flex;gap:6px;margin-top:8px}
@@ -328,7 +336,6 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
     <span class="wave">🌊</span>
   </a>
   <div class="topsearch"><div class="wrap"><input id="topSearch" type="text" placeholder="Search teams, players or leagues" autocomplete="off"></div></div>
-  <div class="prize"><span class="trophy">🏆</span><span><span class="t">Weekly Prize</span><br><span class="v">$50,000.00</span></span></div>
   <button class="walletbtn" onclick="go('#/bets')">💰 Wallet</button>
   <button class="topbtn btn-login" onclick="toast('Demo prototype — no login needed')">Log In</button>
   <button class="topbtn btn-reg" onclick="toast('Demo prototype — no login needed')">Register</button>
@@ -341,7 +348,6 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
     <button data-route="football" onclick="go('#/football')"><span class="ic">⚽</span>Football</button>
     <div class="sep"></div>
     <button data-route="bets" onclick="go('#/bets')"><span class="ic">🧾</span>My Bets</button>
-    <button onclick="go('#/bets');setTimeout(()=>switchBetTab('settled'),50)"><span class="ic">🕘</span>History</button>
   </nav>
 
   <main class="main" id="view"></main>
@@ -463,6 +469,20 @@ const TIMELINE = {
 };
 
 /* markets for a match page — generated from 1X2 odds */
+/* Round 3 — deterministic per-match seed: a hash of the fixture identity.
+   No Math.random() at load (a judge reloading must see the same prices),
+   and no single constant shared by all matches (the round-2 bug: every
+   match showed BTTS 1.72/2.05 and O/U 2.5 1.85/1.95). */
+function seedOf(m){
+  const s = m.comp + "|" + m.home + "|" + m.away;
+  let h = 2166136261;
+  for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 10000) / 10000;
+}
+function rngStream(seed){
+  let a = Math.floor(seed * 1e9) + 1;
+  return function(){ a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
+}
 function marketsFor(m){
   const o=m.odds;
   // Non-soccer matches get their own markets — no Draw, no soccer-only groups.
@@ -496,80 +516,136 @@ function marketsFor(m){
       {label:"Total points 234.5", type:"ou", opts:[{n:"Over 234.5",odds:2.30},{n:"Under 234.5",odds:1.62}]}
     ]
   };
-  // Fixed sample odds — deterministic across reloads (a judge opening twice must see the same prices).
-  const bttsY=1.72, bttsN=2.05;
-  const ou25o=1.85, ou25u=1.95;
+  // Round 3 — per-match odds, derived from THIS match's 1X2 odds plus a
+  // seed hashed from the fixture identity. Same match → same prices on
+  // every load; different matches → different prices. The favourite's price
+  // drives goal expectancy (a 1.30 favourite expects more goals than an
+  // even match), and the seed jitters the rest within plausible bands.
+  const r = rngStream(seedOf(m));
+  const fav = Math.min(o.h, o.a);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const j = v => +(v * (0.92 + r() * 0.16)).toFixed(2); // ±8% seed jitter
+  const gs = v => +(v * (0.85 + r() * 0.30)).toFixed(2); // goalscorer jitter
+  // Complementary price: 1/p with `over` overround gives the other side.
+  const comp = (p, over) => +(1 / Math.max(0.02, over - 1 / p)).toFixed(2);
+  // BTTS: a strong favourite means the underdog rarely scores → Yes drifts out.
+  const bttsY = +clamp(1.60 + (2.60 - fav) * 0.10 + (r() - 0.5) * 0.16, 1.50, 2.00).toFixed(2);
+  const bttsN = comp(bttsY, 1.08);
+  // Total goals 2.5 tracks goal expectancy; the other lines follow from it.
+  const ou25o = +clamp(1.65 + (fav - 1.20) * 0.22 + r() * 0.12, 1.60, 2.05).toFixed(2);
+  const ou25u = comp(ou25o, 1.08);
+  const ou15o = +(ou25o - 0.55 - r() * 0.08).toFixed(2);
+  const ou15u = comp(ou15o, 1.08);
+  const ou35o = +(ou25o + 1.10 + r() * 0.35).toFixed(2);
+  const ou35u = comp(ou35o, 1.08);
+  const ou45o = +(ou35o + 2.00 + r() * 0.80).toFixed(2);
+  const ou45u = comp(ou45o, 1.08);
+  const ou05o = +(1.03 + r() * 0.03).toFixed(2);
+  const ou05u = comp(ou05o, 1.06);
+  const ht15o = +(1.45 + (fav - 1.20) * 0.25 + r() * 0.15).toFixed(2); // home total 1.5
+  const at05o = +(1.70 + r() * 0.25).toFixed(2);                       // away total 0.5
+  const b2y = j(3.20), oeO = j(1.90); // 2nd-half BTTS Yes / odd-even Odd (No/Even complement them)
+  // Exact-score / HT-FT scale with favourite strength (strong favourite →
+  // shorter scorelines); double chance is derived from the 1X2 itself.
+  const csScale = clamp(fav / 1.30, 0.7, 1.6);
+  const cs = v => +(v * csScale).toFixed(2);
+  const dc = (x, y) => +(1 / ((1 / x + 1 / y) / 1.08) * 0.97).toFixed(2);
   const scH=SCORERS[m.home]||["Top scorer"], scA=SCORERS[m.away]||["Top scorer"];
   const cornersSuspended = m.home==="Arsenal" && m.away==="Brighton & Hove Albion";
-  return {
+  // SINGLE SOURCE OF TRUTH (item 1): "Both teams to score" and "Total goals
+  // 2.5" appear in BOTH Popular and Goals — they must be the SAME market
+  // object, so a live tick moves both copies at once and they can never drift.
+  const bttsMk = {label:"Both teams to score", type:"yn", opts:[{n:"Yes",odds:bttsY},{n:"No",odds:bttsN}]};
+  const ou25Mk = {label:"Total goals 2.5", type:"ou", opts:[{n:"Over 2.5",odds:ou25o},{n:"Under 2.5",odds:ou25u}]};
+  const groups = {
     "Popular":[
       {label:"Match result", type:"1x2", opts:[{n:m.home,odds:o.h},{n:"Draw",odds:o.d},{n:m.away,odds:o.a}]},
-      {label:"Both teams to score", type:"yn", opts:[{n:"Yes",odds:+bttsY},{n:"No",odds:+bttsN}]},
-      {label:"Total goals 2.5", type:"ou", opts:[{n:"Over 2.5",odds:+ou25o},{n:"Under 2.5",odds:+ou25u}]},
-      {label:"Double chance", type:"dc", opts:[{n:m.home+" / Draw",odds:1.12},{n:m.home+" / "+m.away,odds:1.18},{n:"Draw / "+m.away,odds:3.10}]},
+      bttsMk,
+      ou25Mk,
+      {label:"Double chance", type:"dc", opts:[{n:m.home+" / Draw",odds:dc(o.h,o.d)},{n:m.home+" / "+m.away,odds:dc(o.h,o.a)},{n:"Draw / "+m.away,odds:dc(o.d,o.a)}]},
       {label:"Draw no bet", type:"dnb", opts:[{n:m.home,odds:+(o.h*0.88).toFixed(2)},{n:m.away,odds:+(o.a*0.55).toFixed(2)}]},
-      {label:"Next goal", type:"next", suspended:true, opts:[{n:m.home,odds:1.45},{n:m.away,odds:6.50},{n:"No goal",odds:9.00}]},
-      {label:"Exact score", type:"cs", opts:[{n:"1-0",odds:7.50},{n:"2-0",odds:9.00},{n:"2-1",odds:6.50},{n:"1-1",odds:8.00},{n:"0-0",odds:12.00},{n:"3-1",odds:13.00}]},
-      {label:"Half-time / Full-time", type:"htft", opts:[{n:m.home+" / "+m.home,odds:1.85},{n:m.home+" / Draw",odds:15.00},{n:"Draw / "+m.home,odds:4.50},{n:m.away+" / "+m.away,odds:17.00}]},
-      {label:"Team to score first", type:"tsf", opts:[{n:m.home,odds:1.60},{n:m.away,odds:3.20},{n:"No goal",odds:13.00}]},
-      {label:"BTTS & total goals 2.5", type:"bttsou", opts:[{n:"Yes & Over 2.5",odds:2.90},{n:"Yes & Under 2.5",odds:3.40}]},
-      {label:m.home+" to win to nil", type:"wtn", opts:[{n:"Yes",odds:2.40},{n:"No",odds:1.55}]},
-      {label:"First goal before 30:00", type:"fg30", opts:[{n:"Yes",odds:1.90},{n:"No",odds:1.85}]}
+      {label:"Next goal", type:"next", suspended:true, opts:[{n:m.home,odds:j(1.45)},{n:m.away,odds:j(6.50)},{n:"No goal",odds:j(9.00)}]},
+      {label:"Exact score", type:"cs", opts:[{n:"1-0",odds:cs(7.50)},{n:"2-0",odds:cs(9.00)},{n:"2-1",odds:cs(6.50)},{n:"1-1",odds:cs(8.00)},{n:"0-0",odds:cs(12.00)},{n:"3-1",odds:cs(13.00)}]},
+      {label:"Half-time / Full-time", type:"htft", opts:[{n:m.home+" / "+m.home,odds:cs(1.85)},{n:m.home+" / Draw",odds:cs(15.00)},{n:"Draw / "+m.home,odds:cs(4.50)},{n:m.away+" / "+m.away,odds:cs(17.00)}]},
+      {label:"Team to score first", type:"tsf", opts:[{n:m.home,odds:j(1.60)},{n:m.away,odds:j(3.20)},{n:"No goal",odds:j(13.00)}]},
+      {label:"BTTS & total goals 2.5", type:"bttsou", opts:[{n:"Yes & Over 2.5",odds:j(2.90)},{n:"Yes & Under 2.5",odds:j(3.40)}]},
+      {label:m.home+" to win to nil", type:"wtn", opts:[{n:"Yes",odds:j(2.40)},{n:"No",odds:j(1.55)}]},
+      {label:"First goal before 30:00", type:"fg30", opts:[{n:"Yes",odds:j(1.90)},{n:"No",odds:j(1.85)}]}
     ],
     "Goals":[
-      {label:"Total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:1.22},{n:"Under 1.5",odds:4.20}]},
-      {label:"Total goals 2.5", type:"ou", opts:[{n:"Over 2.5",odds:+ou25o},{n:"Under 2.5",odds:+ou25u}]},
-      {label:"Total goals 3.5", type:"ou", opts:[{n:"Over 3.5",odds:3.40},{n:"Under 3.5",odds:1.32}]},
-      {label:"Total goals 4.5", type:"ou", opts:[{n:"Over 4.5",odds:6.50},{n:"Under 4.5",odds:1.12}]},
-      {label:"Total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.04},{n:"Under 0.5",odds:11.00}]},
-      {label:"Both teams to score", type:"yn", opts:[{n:"Yes",odds:+bttsY},{n:"No",odds:+bttsN}]},
-      {label:m.home+" total goals", type:"tg", opts:[{n:"Over 1.5",odds:1.65},{n:"Under 1.5",odds:2.20}]},
-      {label:m.away+" total goals", type:"tg", opts:[{n:"Over 0.5",odds:1.85},{n:"Under 0.5",odds:1.95}]},
-      {label:"Both teams to score in 2nd half", type:"yn", opts:[{n:"Yes",odds:3.20},{n:"No",odds:1.32}]},
-      {label:"Total goals odd / even", type:"oe", opts:[{n:"Odd",odds:1.90},{n:"Even",odds:1.90}]}
+      {label:"Total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:ou15o},{n:"Under 1.5",odds:ou15u}]},
+      ou25Mk,
+      {label:"Total goals 3.5", type:"ou", opts:[{n:"Over 3.5",odds:ou35o},{n:"Under 3.5",odds:ou35u}]},
+      {label:"Total goals 4.5", type:"ou", opts:[{n:"Over 4.5",odds:ou45o},{n:"Under 4.5",odds:ou45u}]},
+      {label:"Total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:ou05o},{n:"Under 0.5",odds:ou05u}]},
+      bttsMk,
+      {label:m.home+" total goals", type:"tg", opts:[{n:"Over 1.5",odds:ht15o},{n:"Under 1.5",odds:comp(ht15o,1.08)}]},
+      {label:m.away+" total goals", type:"tg", opts:[{n:"Over 0.5",odds:at05o},{n:"Under 0.5",odds:comp(at05o,1.08)}]},
+      {label:"Both teams to score in 2nd half", type:"yn", opts:[{n:"Yes",odds:b2y},{n:"No",odds:comp(b2y,1.08)}]},
+      {label:"Total goals odd / even", type:"oe", opts:[{n:"Odd",odds:oeO},{n:"Even",odds:comp(oeO,1.08)}]}
     ],
     "Halves":[
-      {label:"1st half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.35).toFixed(2)},{n:"Draw",odds:2.60},{n:m.away,odds:7.50}]},
-      {label:"2nd half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.15).toFixed(2)},{n:"Draw",odds:3.40},{n:m.away,odds:9.00}]},
-      {label:"Half with most goals", type:"hmg", opts:[{n:"1st half",odds:3.10},{n:"2nd half",odds:2.05},{n:"Equal",odds:3.60}]},
-      {label:"Both halves — "+m.home+" to win", type:"bh", opts:[{n:"Yes",odds:4.50},{n:"No",odds:1.18}]},
-      {label:"1st half total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:1.45},{n:"Under 0.5",odds:2.75}]},
-      {label:"2nd half total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:2.10},{n:"Under 1.5",odds:1.72}]},
-      {label:"2nd half — both teams to score", type:"yn", opts:[{n:"Yes",odds:3.40},{n:"No",odds:1.30}]}
+      {label:"1st half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.35).toFixed(2)},{n:"Draw",odds:j(2.60)},{n:m.away,odds:j(7.50)}]},
+      {label:"2nd half result", type:"1x2", opts:[{n:m.home,odds:+(o.h*1.15).toFixed(2)},{n:"Draw",odds:j(3.40)},{n:m.away,odds:j(9.00)}]},
+      {label:"Half with most goals", type:"hmg", opts:[{n:"1st half",odds:j(3.10)},{n:"2nd half",odds:j(2.05)},{n:"Equal",odds:j(3.60)}]},
+      {label:"Both halves — "+m.home+" to win", type:"bh", opts:[{n:"Yes",odds:j(4.50)},{n:"No",odds:j(1.18)}]},
+      {label:"1st half total goals 0.5", type:"ou", opts:[{n:"Over 0.5",odds:j(1.45)},{n:"Under 0.5",odds:j(2.75)}]},
+      {label:"2nd half total goals 1.5", type:"ou", opts:[{n:"Over 1.5",odds:j(2.10)},{n:"Under 1.5",odds:j(1.72)}]},
+      {label:"2nd half — both teams to score", type:"yn", opts:[{n:"Yes",odds:j(3.40)},{n:"No",odds:j(1.30)}]}
     ],
     "Handicaps":[
-      {label:"Asian handicap −1.5 / +1.5", type:"ah", opts:[{n:m.home+" −1.5",odds:2.05},{n:m.away+" +1.5",odds:1.78}]},
-      {label:"Asian handicap −1 / +1", type:"ah", opts:[{n:m.home+" −1",odds:1.72},{n:m.away+" +1",odds:2.10}]},
-      {label:"Asian handicap 0 / 0", type:"ah", opts:[{n:m.home+" 0",odds:1.45},{n:m.away+" 0",odds:2.85}]},
-      {label:"Asian handicap −2.0 / +2.0", type:"ah", opts:[{n:m.home+" −2.0",odds:2.85},{n:m.away+" +2.0",odds:1.42}]},
-      {label:"Asian handicap −0.5 / +0.5", type:"ah", opts:[{n:m.home+" −0.5",odds:1.62},{n:m.away+" +0.5",odds:2.28}]},
-      {label:"European handicap −1", type:"eh", opts:[{n:m.home+" −1",odds:2.30},{n:"Draw −1",odds:3.80},{n:m.away+" +1",odds:2.90}]},
-      {label:"Asian handicap −2.5 / +2.5", type:"ah", opts:[{n:m.home+" −2.5",odds:3.40},{n:m.away+" +2.5",odds:1.30}]}
+      {label:"Asian handicap −1.5 / +1.5", type:"ah", opts:[{n:m.home+" −1.5",odds:j(2.05)},{n:m.away+" +1.5",odds:j(1.78)}]},
+      {label:"Asian handicap −1 / +1", type:"ah", opts:[{n:m.home+" −1",odds:j(1.72)},{n:m.away+" +1",odds:j(2.10)}]},
+      {label:"Asian handicap 0 / 0", type:"ah", opts:[{n:m.home+" 0",odds:j(1.45)},{n:m.away+" 0",odds:j(2.85)}]},
+      {label:"Asian handicap −2.0 / +2.0", type:"ah", opts:[{n:m.home+" −2.0",odds:j(2.85)},{n:m.away+" +2.0",odds:j(1.42)}]},
+      {label:"Asian handicap −0.5 / +0.5", type:"ah", opts:[{n:m.home+" −0.5",odds:j(1.62)},{n:m.away+" +0.5",odds:j(2.28)}]},
+      {label:"European handicap −1", type:"eh", opts:[{n:m.home+" −1",odds:j(2.30)},{n:"Draw −1",odds:j(3.80)},{n:m.away+" +1",odds:j(2.90)}]},
+      {label:"Asian handicap −2.5 / +2.5", type:"ah", opts:[{n:m.home+" −2.5",odds:j(3.40)},{n:m.away+" +2.5",odds:j(1.30)}]}
     ],
     "Goalscorers":[
-      {label:"Anytime goalscorer", type:"ags", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(2.10+i*0.5).toFixed(2)})).concat(scA.slice(0,2).map((p,i)=>({n:p,odds:+(3.10+i*0.7).toFixed(2)})))},
-      {label:"First goalscorer", type:"fgs", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:+(4.50+i*1.0).toFixed(2)})).concat(scA.slice(0,1).map(p=>({n:p,odds:8.50})))},
-      {label:"Next goalscorer", type:"ngs", suspended:true, opts:[{n:scH[0],odds:3.20},{n:scA[0],odds:6.00},{n:"No more goals",odds:5.50}]},
-      {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:9.00},{n:scA[0],odds:17.00}]},
-      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:5.50},{n:scH[1],odds:8.00},{n:scA[0],odds:11.00}]},
-      {label:"To score in 2nd half", type:"2h", opts:[{n:scH[0],odds:4.50},{n:scH[1],odds:6.00},{n:scA[0],odds:9.00}]}
+      {label:"Anytime goalscorer", type:"ags", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:gs(2.10+i*0.5)})).concat(scA.slice(0,2).map((p,i)=>({n:p,odds:gs(3.10+i*0.7)})))},
+      {label:"First goalscorer", type:"fgs", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:gs(4.50+i*1.0)})).concat(scA.slice(0,1).map(p=>({n:p,odds:gs(8.50)})))},
+      {label:"Next goalscorer", type:"ngs", suspended:true, opts:[{n:scH[0],odds:gs(3.20)},{n:scA[0],odds:gs(6.00)},{n:"No more goals",odds:gs(5.50)}]},
+      {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:gs(9.00)},{n:scA[0],odds:gs(17.00)}]},
+      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:gs(5.50)},{n:scH[1],odds:gs(8.00)},{n:scA[0],odds:gs(11.00)}]},
+      {label:"To score in 2nd half", type:"2h", opts:[{n:scH[0],odds:gs(4.50)},{n:scH[1],odds:gs(6.00)},{n:scA[0],odds:gs(9.00)}]}
     ],
     "Corners & cards": cornersSuspended ? [
-      {label:"Total corners", type:"corn", suspended:true, opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
-      {label:"Total corners 10.5", type:"corn", suspended:true, opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
-      {label:"Total cards", type:"cards", suspended:true, opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
-      {label:"First corner", type:"fc", suspended:true, opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
-      {label:"Next card", type:"nc", suspended:true, opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]},
-      {label:"Total corners 8.5", type:"corn", suspended:true, opts:[{n:"Over 8.5",odds:1.55},{n:"Under 8.5",odds:2.40}]}
+      {label:"Total corners", type:"corn", suspended:true, opts:[{n:"Over 9.5",odds:j(1.85)},{n:"Under 9.5",odds:j(1.95)}]},
+      {label:"Total corners 10.5", type:"corn", suspended:true, opts:[{n:"Over 10.5",odds:j(2.20)},{n:"Under 10.5",odds:j(1.65)}]},
+      {label:"Total cards", type:"cards", suspended:true, opts:[{n:"Over 3.5",odds:j(1.90)},{n:"Under 3.5",odds:j(1.90)}]},
+      {label:"First corner", type:"fc", suspended:true, opts:[{n:m.home,odds:j(1.60)},{n:m.away,odds:j(2.30)}]},
+      {label:"Next card", type:"nc", suspended:true, opts:[{n:m.home,odds:j(2.10)},{n:m.away,odds:j(2.10)},{n:"No more cards",odds:j(3.50)}]},
+      {label:"Total corners 8.5", type:"corn", suspended:true, opts:[{n:"Over 8.5",odds:j(1.55)},{n:"Under 8.5",odds:j(2.40)}]}
     ] : [
-      {label:"Total corners", type:"corn", opts:[{n:"Over 9.5",odds:1.85},{n:"Under 9.5",odds:1.95}]},
-      {label:"Total corners 10.5", type:"corn", opts:[{n:"Over 10.5",odds:2.20},{n:"Under 10.5",odds:1.65}]},
-      {label:"Total cards", type:"cards", opts:[{n:"Over 3.5",odds:1.90},{n:"Under 3.5",odds:1.90}]},
-      {label:"First corner", type:"fc", opts:[{n:m.home,odds:1.60},{n:m.away,odds:2.30}]},
-      {label:"Next card", type:"nc", opts:[{n:m.home,odds:2.10},{n:m.away,odds:2.10},{n:"No more cards",odds:3.50}]},
-      {label:"Total corners 8.5", type:"corn", opts:[{n:"Over 8.5",odds:1.55},{n:"Under 8.5",odds:2.40}]}
+      {label:"Total corners", type:"corn", opts:[{n:"Over 9.5",odds:j(1.85)},{n:"Under 9.5",odds:j(1.95)}]},
+      {label:"Total corners 10.5", type:"corn", opts:[{n:"Over 10.5",odds:j(2.20)},{n:"Under 10.5",odds:j(1.65)}]},
+      {label:"Total cards", type:"cards", opts:[{n:"Over 3.5",odds:j(1.90)},{n:"Under 3.5",odds:j(1.90)}]},
+      {label:"First corner", type:"fc", opts:[{n:m.home,odds:j(1.60)},{n:m.away,odds:j(2.30)}]},
+      {label:"Next card", type:"nc", opts:[{n:m.home,odds:j(2.10)},{n:m.away,odds:j(2.10)},{n:"No more cards",odds:j(3.50)}]},
+      {label:"Total corners 8.5", type:"corn", opts:[{n:"Over 8.5",odds:j(1.55)},{n:"Under 8.5",odds:j(2.40)}]}
     ]
   };
+  // Impossible markets (item 7): a live match past a point in the game can
+  // no longer offer a market whose outcome is already decided. Decide from
+  // the match's own minute + score — never from a timer — so the list is
+  // stable across reloads and identical on every surface.
+  if(m.status==="live"){
+    const min = m.minute || 0, goals = (m.hs || 0) + (m.as || 0);
+    const deadLabel = label =>
+      (label === "1st half result" && min > 45) ||
+      (label === "1st half total goals 0.5" && min > 45) ||
+      (label === "First corner" && min > 45) ||
+      (label === "First goal before 30:00" && min > 30) ||
+      (label === "Team to score first" && goals > 0) ||
+      (label === "First goalscorer" && goals > 0);
+    for(const list of Object.values(groups)) for(const mk of list){
+      // Exact score 0-0 is impossible once a goal exists — drop just that line.
+      if(mk.label === "Exact score" && goals > 0) mk.opts = mk.opts.filter(op => op.n !== "0-0");
+    }
+    for(const g of Object.keys(groups)) groups[g] = groups[g].filter(mk => !deadLabel(mk.label));
+  }
+  return groups;
 }
 
 /* ================= State ================= */
@@ -590,7 +666,7 @@ let myBets = store.get("mybets", null) || {
 let slip = [];            // {key, matchId, match, comp, market, sel, odds, stake, oldOdds, suspended}
 let balance = store.get("balance", 1250); // sample demo balance in USDT; the seeded open bet (b1, $20) was placed before this session, so it is NOT deducted again at load
 if(typeof balance!=="number" || isNaN(balance) || balance<0) balance=1250;
-let slipMsg = null;       // {kind:'ok'|'err', msg} — persists across re-renders
+let slipMsg = null;       // {kind:'ok'|'err', key, msg} — msg is DERIVED from live slip state (see slipMsgText), never frozen text
 let betTab = "open";
 let liveFilter = {sport:"All", comp:"All"};
 let footComp = "Premier League";
@@ -602,6 +678,13 @@ let suspendedMarkets = new Set(); // keys "matchId|marketLabel" suspended by the
 let placing = false;
 let varActive = false; // scripted VAR check in progress on the featured match
 let startTs = Date.now();
+// Current live minute for a match: the seeded minute at page load plus the
+// minutes elapsed since. Rendered clocks must use this for their INITIAL text
+// (a fresh render after navigation would otherwise show the stale seed minute
+// until the 1s interval fires — the list/match clock mismatch the reviewer saw
+// in item 11: list stuck at 52' while the match page ticked to 53').
+function curMin(m){ return (m.minute||0) + Math.floor((Date.now()-startTs)/60000); }
+function curSec(){ return Math.floor((Date.now()-startTs)/1000)%60; }
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = n => (Math.round(n*100)/100).toFixed(2);
@@ -625,35 +708,46 @@ function marketKey(matchId, label){ return matchId+"|"+label; }
 function allOddsRefs(){
   // returns list of {match, marketLabel, optIndex, get, set} for live odds on screen
   const refs=[];
+  // Popular + Goals share ONE BTTS / O-U 2.5 object (single source of truth) —
+  // tick it once per round, not once per group, or it would move twice as fast.
+  const seen=new Set();
   MATCHES.forEach(m=>{
     if(!m._markets) m._markets = marketsFor(m);
     Object.entries(m._markets).forEach(([g, mkts])=>{
       mkts.forEach(mk=>{
-        mk.opts.forEach((op,i)=>refs.push({m, group:g, label:mk.label, opt:op, suspended: mk.suspended || suspendedMarkets.has(marketKey(m.id, mk.label))}));
+        mk.opts.forEach((op,i)=>{ if(seen.has(op)) return; seen.add(op); refs.push({m, group:g, label:mk.label, opt:op, suspended: mk.suspended || suspendedMarkets.has(marketKey(m.id, mk.label))}); });
       });
     });
   });
   return refs;
 }
 function tickOdds(){
-  const refs = allOddsRefs().filter(r=>!r.suspended && r.opt.odds>1.05);
+  // Round 3: a selection whose price already moved (awaiting Accept) is frozen
+  // until the user accepts — the price must not keep running away from them.
+  const changedKeys = new Set(slip.filter(s=>s.changed).map(s=>s.matchId+"|"+s.market+"|"+s.sel));
+  const refs = allOddsRefs().filter(r=>!r.suspended && r.opt.odds>1.05 && !changedKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n));
   if(!refs.length) return;
   // Bias toward odds actually on screen so movement is visible within seconds (judges watch
   // the match page), and toward odds in the slip so the "odds changed" state shows up quickly.
+  // Round 3: the pace is a balance — the page must visibly breathe (several
+  // odds move per 20s) while a SLIP selection moves at most ~once a minute,
+  // so placing is never a race against the price (the old pace moved a slip
+  // odd ~3x/min and blocked two Place attempts in a row).
   const visibleKeys = new Set([...document.querySelectorAll("[data-odd-key]")].map(el=>el.dataset.oddKey));
   const visibleRefs = refs.filter(r=>visibleKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n));
-  const n = 1+Math.floor(Math.random()*2);
+  const n = 2;
   for(let k=0;k<n;k++){
     let r;
-    if(slip.length && Math.random()<0.45){
-      const s = slip[Math.floor(Math.random()*slip.length)];
-      r = refs.find(x=>x.m.id===s.matchId && x.label===s.market && x.opt.n===s.sel);
+    if(slip.length && Math.random()<0.10){
+      const open = slip.filter(s=>!s.changed);
+      const s = open.length ? open[Math.floor(Math.random()*open.length)] : null;
+      if(s) r = refs.find(x=>x.m.id===s.matchId && x.label===s.market && x.opt.n===s.sel);
     }
     if(!r && visibleRefs.length && Math.random()<0.85){
       r = visibleRefs[Math.floor(Math.random()*visibleRefs.length)];
     }
     if(!r) r = refs[Math.floor(Math.random()*refs.length)];
-    const delta = (Math.random()<0.5?-1:1)*(0.01+Math.random()*0.05);
+    const delta = (Math.random()<0.5?-1:1)*(0.01+Math.random()*0.02);
     const old = r.opt.odds;
     r.opt.odds = Math.max(1.02, Math.round((old+delta)*100)/100);
     if(r.opt.odds===old) continue;
@@ -673,22 +767,15 @@ function tickOdds(){
       el.classList.toggle("up", r.opt.odds>old); el.classList.toggle("down", r.opt.odds<old);
       setTimeout(()=>{ el.classList.remove("up","down"); }, 2500);
     });
-    // slip selection changed?
+    // slip selection changed? Keep the ORIGINAL price as the "from" number:
+    // a second move before the user accepts must not overwrite it, or the
+    // toast ("added @1.72"), the banner and the slip all show different numbers.
+    // (Focus preservation lives in renderSlip itself, so every re-render path
+    // keeps the caret — not just the tick.)
     const s = slip.find(x=>x.matchId===r.m.id && x.market===r.label && x.sel===r.opt.n);
     if(s && s.odds!==r.opt.odds){
-      // Preserve stake-input focus/caret across the slip re-render.
-      const ae = document.activeElement;
-      let focusCtx = null;
-      if(ae && ae.tagName==="INPUT" && ae.closest(".slip-item")){
-        const item = ae.closest(".slip-item");
-        const scope = ae.closest(".sheet") ? ".sheet" : ae.closest("#betsSlipWrap") ? "#betsSlipWrap" : ".panel";
-        focusCtx = { scope, key: item.dataset.slipKey, pos: ae.selectionStart };
-      }
-      s.oldOdds = s.odds; s.odds = r.opt.odds; s.changed=true; renderSlip();
-      if(focusCtx){
-        const ni = document.querySelector(`${focusCtx.scope} .slip-item[data-slip-key="${CSS.escape(focusCtx.key)}"] input`);
-        if(ni){ ni.focus(); try{ ni.setSelectionRange(focusCtx.pos, focusCtx.pos); }catch(e){} }
-      }
+      if(!s.changed) s.oldOdds = s.odds;
+      s.odds = r.opt.odds; s.changed=true; renderSlip();
     }
   }
 }
@@ -712,6 +799,7 @@ function tickSuspension(){
 }
 /* Shared suspension path — used by the live engine, the VAR script and the
    judge preview button, so all three suspend (and unsuspend) the same way. */
+let suspState = {}; // key -> {until: epoch-ms, timer: id} — countdown + manual resume (item 19)
 function suspendMarket(matchId, label, ms){
   const m = MATCHES.find(x=>x.id===matchId); if(!m) return;
   const key = marketKey(matchId, label);
@@ -719,14 +807,27 @@ function suspendMarket(matchId, label, ms){
   suspendedMarkets.add(key);
   slip.forEach(s=>{ if(s.matchId===matchId && s.market===label){ s.suspended=true; } });
   toast("⚠️ Market suspended: "+label+" — "+m.home+" v "+m.away, "err");
+  // Round 3 (item 19): a visible countdown + a manual "Resume now" — the
+  // judge no longer has to wait ~15s blind for a suspension to lift.
+  const dur = ms||15000;
+  suspState[key] = { until: Date.now()+dur, timer: setTimeout(()=>unsuspendMarket(key), dur) };
   renderSlip();
   if(location.hash.startsWith("#/match")) render();
-  setTimeout(()=>{
-    suspendedMarkets.delete(key);
-    slip.forEach(s=>{ if(s.matchId===matchId && s.market===label){ s.suspended=false; } });
-    renderSlip();
-    if(location.hash.startsWith("#/match")) render();
-  }, ms||15000);
+}
+function unsuspendMarket(key){
+  if(!suspendedMarkets.has(key)) return;
+  const st = suspState[key];
+  if(st){ clearTimeout(st.timer); delete suspState[key]; }
+  suspendedMarkets.delete(key);
+  const [matchId, label] = key.split("|");
+  slip.forEach(s=>{ if(s.matchId===matchId && s.market===label){ s.suspended=false; } });
+  renderSlip();
+  if(location.hash.startsWith("#/match")) render();
+}
+function suspRemaining(key){
+  const st = suspState[key];
+  if(!st) return null;
+  return Math.max(0, Math.ceil((st.until - Date.now())/1000));
 }
 
 /* ================= Judge preview controls (PROTOTYPE — PREVIEW EVERY STATE) ===
@@ -750,9 +851,9 @@ function previewFailNext(){
   renderSlip();
 }
 function previewOddsChanged(){
-  const s = slip.find(x=>!x.suspended);
+  const s = slip.find(x=>!x.suspended && !x.changed) || slip.find(x=>!x.suspended);
   if(!s){ toast("Add a selection to the slip first, then tap “Odds changed”.", "err"); return; }
-  s.oldOdds = s.odds;
+  if(!s.changed) s.oldOdds = s.odds; // keep the original price as the "from" number
   let next = Math.max(1.02, Math.round((s.odds + (Math.random()<0.5?-1:1)*(0.03+Math.random()*0.08))*100)/100);
   if(next===s.oldOdds) next = Math.round((s.odds+0.05)*100)/100;
   s.odds = next; s.changed = true;
@@ -771,21 +872,15 @@ function previewBoxHTML(){
     </div>
   </div>`;
 }
-setInterval(tickOdds, 5000);
+setInterval(tickOdds, 6000); // Round 3: was 5s — the page must breathe, but placing must not be a race
 setInterval(tickSuspension, 42000);
 // Scripted VAR check on the featured match ~75s after load: suspends Match result briefly
 setTimeout(()=>{
   const m=MATCHES[0];
-  const key=marketKey(m.id,"Match result");
   varActive=true;
-  suspendedMarkets.add(key);
-  slip.forEach(s=>{ if(s.matchId===m.id && s.market==="Match result"){ s.suspended=true; } });
+  suspendMarket(m.id, "Match result", 20000); // shared path: countdown + manual resume
   toast("📺 VAR check — Match result suspended (Arsenal v Brighton)", "err");
-  renderSlip(); if(location.hash.startsWith("#/match")) render();
-  setTimeout(()=>{ varActive=false; suspendedMarkets.delete(key);
-    slip.forEach(s=>{ if(s.matchId===m.id && s.market==="Match result"){ s.suspended=false; } });
-    renderSlip(); if(location.hash.startsWith("#/match")) render();
-  }, 20000);
+  setTimeout(()=>{ varActive=false; if(location.hash.startsWith("#/match")) render(); }, 20000);
 }, 75000);
 // Live clocks tick every second
 setInterval(()=>{
@@ -797,6 +892,12 @@ setInterval(()=>{
   $$("[data-clock-min]").forEach(el=>{
     const base=+el.dataset.clockMin, sec=Math.floor((Date.now()-startTs)/1000);
     el.textContent = (base+Math.floor(sec/60))+"′";
+  });
+  // Suspension countdowns (item 19): every "[data-susp-count]" shows the
+  // seconds left until the market reopens (0 once the timer fires).
+  $$("[data-susp-count]").forEach(el=>{
+    const rem = suspRemaining(el.dataset.suspCount);
+    el.textContent = rem===null ? "" : rem+"s";
   });
   // Tennis live games tick: roughly one game per 45s of session time, winners
   // alternating, frozen once the set reaches 6–4. Never a minute for tennis.
@@ -843,7 +944,10 @@ function addToSlip(m, label, sel, odds, suspended){
 function slipCount(){ return slip.length; }
 function slipTotals(){
   let stake=0, ret=0;
-  slip.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; ret+=st*s.odds; });
+  // A suspended selection can't win: its return is 0 and it adds nothing to
+  // the potential return — but its stake stays in the totals (it is still
+  // reserved while the market is suspended; it unblocks on resume).
+  slip.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; if(!s.suspended) ret+=st*s.odds; });
   return {stake, ret};
 }
 function balanceHTML(){
@@ -885,11 +989,25 @@ function setStake(key, val, el){
     const bs=pb.querySelectorAll(".tot b");
     if(bs[0]) bs[0].textContent=fmt(t.stake)+" USDT";
     if(bs[1]) bs[1].textContent=fmt(t.ret)+" USDT";
+    // Round 3 (item 6): the Place button is a total too — typing a stake must
+    // update its label in place, or it reads "Place bet · 0.00 USDT" while
+    // Total stake already shows the typed amount. (The "Accept all" button
+    // above it is not a Place button — leave its label alone.)
+    if(!placing){
+      const place=[...pb.querySelectorAll(".placebtn")].find(b=>b.textContent.includes("Place bet"));
+      if(place) place.textContent="Place bet · "+fmt(t.stake)+" USDT";
+    }
   });
   // Balance itself never changes while typing, but Balance after follows the stake.
   $$(".bal-val").forEach(el=>el.textContent=fmtC(balance)+" USDT");
   $$(".bal-after-val").forEach(el=>el.textContent=fmtC(balance - t.stake)+" USDT");
   const sb=$("#slipbarRet"); if(sb) sb.textContent="Potential "+fmt(t.ret)+" USDT";
+  // The "no stake" note is rendered by slipHTML but typing updates in place
+  // (no re-render) — toggle it live or it goes stale the moment a stake lands.
+  const anyNoStake = slip.some(s=>!(parseFloat(s.stake)>0));
+  $$(".nostake-note").forEach(el=>{ el.style.display = anyNoStake ? "" : "none"; });
+  // Typing a stake can clear a "no stake" error — recompute the banner live.
+  syncSlipMsg(); renderSlipMsgNodes();
 }
 function setChip(key, val){
   const s=slip.find(x=>x.key===key); if(!s || s.suspended) return;
@@ -901,16 +1019,16 @@ function setChip(key, val){
 function clearSlipMsg(){ slipMsg=null; }
 function placeBets(){
   if(placing) return;
-  if(!slip.length){ showSlipMsg("err","Your slip is empty — tap an odd to add a single."); return; }
+  if(!slip.length){ showSlipMsg("err","empty","Your slip is empty — tap an odd to add a single."); return; }
   const badStake = slip.find(s=>!(parseFloat(s.stake)>0));
-  if(badStake){ showSlipMsg("err","Bet failed — enter a stake (USDT) for “"+badStake.sel+"”. Stakes of 0 can't be placed."); toast("❌ Bet failed — missing stake", "err"); return; }
+  if(badStake){ showSlipMsg("err","no-stake"); toast("❌ Bet failed — missing stake", "err"); return; }
   const susp = slip.find(s=>s.suspended);
-  if(susp){ showSlipMsg("err","Bet failed — “"+susp.sel+"” ("+susp.market+") is suspended. Remove it or wait for the market to reopen."); toast("❌ Bet failed — selection suspended", "err"); return; }
+  if(susp){ showSlipMsg("err","suspended"); toast("❌ Bet failed — selection suspended", "err"); return; }
   const chg = slip.find(s=>s.changed);
-  if(chg){ showSlipMsg("err","Odds changed — accept the new odds for “"+chg.sel+"” ("+fmt(chg.oldOdds)+" → "+fmt(chg.odds)+") before placing."); toast("⚠️ Odds changed — accept first", "err"); return; }
+  if(chg){ showSlipMsg("err","odds-changed"); toast("⚠️ Odds changed — accept first", "err"); return; }
   const tt=slipTotals();
-  if(tt.stake > balance){ showSlipMsg("err","Bet failed — insufficient balance. Your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("❌ Bet failed — insufficient balance", "err"); return; }
-  if(failNextBet){ failNextBet=false; showSlipMsg("err","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); renderSlip(); return; }
+  if(tt.stake > balance){ showSlipMsg("err","insufficient","Bet failed — insufficient balance. Your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("❌ Bet failed — insufficient balance", "err"); return; }
+  if(failNextBet){ failNextBet=false; showSlipMsg("err","failed","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); renderSlip(); return; }
   placing=true; renderSlip();
   setTimeout(()=>{
     placing=false;
@@ -920,7 +1038,7 @@ function placeBets(){
     const n=slip.length, t=slipTotals();
     balance = Math.round((balance - t.stake)*100)/100; // deduct the placed stake; persists via saveAll
     slip=[]; saveAll(); syncOddButtons();
-    showSlipMsg("ok","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(t.stake)+" USDT, potential return "+fmt(t.ret)+" USDT. See it in My bets → Open.");
+    showSlipMsg("ok","placed","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(t.stake)+" USDT, potential return "+fmt(t.ret)+" USDT. See it in My bets → Open.");
     toast("✅ Bet placed — good luck!", "ok");
     renderSlip(); renderPanel();
     if(location.hash==="#/bets"){ betTab="open"; render(); }
@@ -935,11 +1053,51 @@ function cashOut(id){
   toast("💰 Cashed out "+fmt(b.cashout)+" USDT — "+b.sel, "ok");
   if(location.hash==="#/bets") render();
 }
-function showSlipMsg(kind,msg){
-  slipMsg={kind,msg};
+function showSlipMsg(kind, key, msg){
+  slipMsg = {kind, key, msg: msg || ""};
+  syncSlipMsg(); // derived keys compute their text from the live slip
+  renderSlipMsgNodes();
+}
+// Round 3 (item 5): slip messages are DERIVED from live slip state, not
+// frozen text. "Odds changed" / "suspended" / "no stake" are recomputed on
+// every render, so a banner can never show numbers from an earlier move —
+// and it disappears the moment the condition clears (accept / remove /
+// resume). One-shot results (placed / failed / insufficient) keep static text.
+function slipMsgText(){
+  if(!slipMsg) return "";
+  if(slipMsg.key==="odds-changed"){
+    const s = slip.find(x=>x.changed);
+    if(!s) return "";
+    return "Odds changed — accept the new odds for “"+s.sel+"” ("+fmt(s.oldOdds)+" → "+fmt(s.odds)+") before placing.";
+  }
+  if(slipMsg.key==="suspended"){
+    const s = slip.find(x=>x.suspended);
+    if(!s) return "";
+    return "Bet failed — “"+s.sel+"” ("+s.market+") is suspended. Remove it or wait for the market to reopen.";
+  }
+  if(slipMsg.key==="no-stake"){
+    const s = slip.find(x=>!(parseFloat(x.stake)>0));
+    if(!s) return "";
+    return "Bet failed — enter a stake (USDT) for “"+s.sel+"”. Stakes of 0 can't be placed.";
+  }
+  return slipMsg.msg||"";
+}
+function syncSlipMsg(){
+  // Recompute the stored text from live state; drop the message entirely
+  // once its condition no longer holds (stale banners never survive a render).
+  if(!slipMsg) return;
+  const t = slipMsgText();
+  if(!t) slipMsg = null; else slipMsg.msg = t;
+}
+function renderSlipMsgNodes(){
   $$(".slip-msg").forEach(el=>{
-    el.className="slip-msg slip-"+kind+" show";
-    el.textContent=msg;
+    if(slipMsg && slipMsg.msg){
+      el.className = "slip-msg slip-" + slipMsg.kind + " show";
+      el.textContent = slipMsg.msg;
+    } else {
+      el.className = "slip-msg";
+      el.textContent = "";
+    }
   });
 }
 function resetDemo(){
@@ -958,7 +1116,13 @@ function slipHTML(){
     ${previewBoxHTML()}`;
   }
   const t=slipTotals();
-  return slip.map(s=>`
+  // Item 10: selections without a stake contribute nothing to the totals and
+  // can't be placed — say so plainly instead of leaving a silent 0.00.
+  const noStake = slip.some(s=>!(parseFloat(s.stake)>0));
+  return slip.map(s=>{
+    const sk = marketKey(s.matchId, s.market);
+    const srem = s.suspended ? suspRemaining(sk) : null;
+    return `
     <div class="slip-item${s.suspended?" suspended":""}" data-slip-key="${s.key}">
       <div style="display:flex;justify-content:space-between;gap:8px">
         <div style="min-width:0"><div class="sel">${esc(s.sel)}</div><div class="mk">${esc(s.match)} · ${esc(s.market)} · ${esc(s.comp)}</div></div>
@@ -970,14 +1134,16 @@ function slipHTML(){
       </div>
       <div class="chips">${[1,10,50,100].map(v=>`<button class="chip ${+s.stake===v?"on":""}" data-v="${v}" ${s.suspended?"disabled":""} onclick="setChip('${s.key}',${v})">${v}</button>`).join("")}</div>
       ${s.changed?`<div class="odds-changed">⚠️ Odds changed ${fmt(s.oldOdds)} → ${fmt(s.odds)}<button onclick="acceptOdds('${s.key}')">Accept</button></div>`:""}
-      ${s.suspended?`<div class="susp-note">⛔ Suspended — can't be placed right now</div>`:""}
-      <div class="ret"><span>Potential return</span><b>${fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
-    </div>`).join("")
+      ${s.suspended?`<div class="susp-note">⛔ Suspended — can't be placed right now${srem!==null?` · reopens in <span data-susp-count="${sk}">${srem}s</span><button onclick="unsuspendMarket('${sk}')" style="margin-left:auto;background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
+      <div class="ret"><span>${s.suspended?"Return (suspended)":"Potential return"}</span><b>${s.suspended?"0.00":fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
+    </div>`;
+  }).join("")
   + `<div class="placebar">
       <div class="bal-line"><span>Balance</span><b class="bal-val">${fmtC(balance)} USDT</b></div>
       <div class="tot"><span>Total stake</span><b>${fmt(t.stake)} USDT</b></div>
       <div class="tot"><span>Potential return</span><b>${fmt(t.ret)} USDT</b></div>
       <div class="bal-line after"><span>Balance after</span><b class="bal-after-val">${fmtC(balance - t.stake)} USDT</b></div>
+      <div class="nostake-note small muted" style="margin:0 0 8px;${noStake?"":"display:none"}">Selections without a stake are not counted in the totals and can't be placed — enter a stake for each single.</div>
       ${slip.some(s=>s.changed)?`<button class="placebtn" style="background:var(--amber);color:#241a02;margin-bottom:8px" onclick="acceptAllOdds()">Accept all new odds</button>`:""}
       <button class="placebtn ${placing?"busy":""}" ${placing?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
       <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsg?esc(slipMsg.msg):""}</div>
@@ -992,13 +1158,25 @@ function myBetsHTML(tab){
     const st = b.result==="won"?["st-won","Won"]:b.result==="lost"?["st-lost","Lost"]:b.result==="cashed"?["st-cashed","Cashed out"]:["st-open","Open"];
     return `<div class="card bet">
       <div class="top"><div style="min-width:0"><div class="sel">${esc(b.sel)}</div><div class="mk">${esc(b.match)} · ${esc(b.market)} · ${esc(b.comp)}</div></div><span class="st ${st[0]}">${st[1]}</span></div>
-      <div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span><span>${b.result==="lost"?"Lost":b.result==="won"?"Return":"Potential"} <b>${b.result==="lost"?"0.00":fmt(b.result==="cashed"?b.ret:b.result==="won"?b.ret:b.stake*b.odds)} USDT</b></span></div>
+      <div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span><span>${b.result==="lost"?"Lost":b.result==="won"?"Return":b.result==="cashed"?"Cashed out":"Potential"} <b>${b.result==="lost"?"0.00":fmt(b.result==="cashed"?b.ret:b.result==="won"?b.ret:b.stake*b.odds)} USDT</b></span></div>
       ${tab==="open"?`<div class="foot"><span class="co-val">Cash out <b>${fmt(b.cashout)} USDT</b></span><button class="cobtn" onclick="cashOut('${b.id}')">Cash out</button></div>`:""}
       <div class="placed">Placed ${esc(b.placed)}${b.live?" · <span class='live-badge'>Live</span>":""}</div>
     </div>`;
   }).join("");
 }
 function renderSlip(){
+  syncSlipMsg(); // derived messages recompute (and clear) before anything renders
+  // Preserve stake-input focus/caret across the re-render: slipHTML rebuilds
+  // the inputs via innerHTML, so any re-render (odds tick, suspension,
+  // accept, preview control) would otherwise yank the caret out from under
+  // a user who is typing a stake. One path here covers all of them.
+  const ae = document.activeElement;
+  let focusCtx = null;
+  if(ae && ae.tagName==="INPUT" && ae.closest(".slip-item")){
+    const item = ae.closest(".slip-item");
+    const scope = ae.closest(".sheet") ? ".sheet" : ae.closest("#betsSlipWrap") ? "#betsSlipWrap" : ".panel";
+    focusCtx = { scope, key: item.dataset.slipKey, pos: ae.selectionStart };
+  }
   const n=slipCount(), t=slipTotals();
   const bar=$("#slipbar");
   if(n>0){ bar.classList.add("show"); $("#slipbarN").textContent=n; $("#slipbarRet").textContent="Potential "+fmt(t.ret)+" USDT"; }
@@ -1010,6 +1188,10 @@ function renderSlip(){
   if(wrap) wrap.innerHTML = `<div class="slip-head"><h2>Bet slip<span class="count">${n}</span></h2>${slip.length?`<button class="clearbtn" onclick="clearSlip()">Clear all</button>`:""}</div>${slipHTML()}`;
   const sh=$("#sheetBody");
   if($("#sheet").classList.contains("show")) sh.innerHTML = sheetHTML();
+  if(focusCtx){
+    const ni = document.querySelector(`${focusCtx.scope} .slip-item[data-slip-key="${CSS.escape(focusCtx.key)}"] input`);
+    if(ni){ ni.focus(); try{ ni.setSelectionRange(focusCtx.pos, focusCtx.pos); }catch(e){} }
+  }
 }
 function renderPanel(){
   const p=$("#panel"); if(!p) return;
@@ -1083,7 +1265,7 @@ function matchRow(m, showMore, mode){
   // quarter; soccer shows the ticking minute.
   const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></div>`
     : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock">${esc((m.period||"").split(" ")[0])}</div>`
-    : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${m.minute}′</div>`;
+    : `<span class="live-badge">Live</span><div class="clock" data-clock-min="${m.minute}">${curMin(m)}′</div>`;
   const when = live ? liveWhen : `<b>${m.time}</b>${m.date}`;
   const score = live ? `<span class="sc">${m.hs}</span>` : "";
   const score2 = live ? `<span class="sc">${m.as}</span>` : "";
@@ -1113,7 +1295,7 @@ function featCard(m){
   const clockHtml = !live ? `<span>${esc(m.date)} · ${m.time}</span>`
     : m.sport==="Tennis" ? `<span><span class="live-badge">Live</span> <span class="clock">Set ${((m.setScore||"").split(",").length)+1} · <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span></span>`
     : m.sport==="Basketball" ? `<span><span class="live-badge">Live</span> <span class="clock">${esc((m.period||"").split(" ")[0])}</span></span>`
-    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${m.minute}′</span></span>`;
+    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min="${m.minute}">${curMin(m)}′</span></span>`;
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
     <div class="top"><span>${esc(m.comp)}</span>${clockHtml}</div>
     <div class="tm">${crest(m.home)}${esc(m.home)}<span class="sc">${live?m.hs:""}</span></div>
@@ -1148,7 +1330,7 @@ function sportNavHTML(active){
 function liveMeta(m){ // short live label for search results — never a minute for tennis
   if(m.sport==="Tennis") return "🔴 Live · Set "+(((m.setScore||"").split(",").length)+1);
   if(m.sport==="Basketball") return "🔴 Live · "+(m.period||"").split(" ")[0];
-  return "🔴 Live "+m.minute+"′";
+  return "🔴 Live "+curMin(m)+"′";
 }
 function searchResultsHTML(q){
   q=q.trim().toLowerCase(); if(q.length<2) return "";
@@ -1157,28 +1339,36 @@ function searchResultsHTML(q){
   const players=PLAYERS.filter(p=>p.toLowerCase().includes(q));
   const matches=MATCHES.filter(m=>(m.home+" "+m.away+" "+m.comp).toLowerCase().includes(q));
   // Odds group: live prices from the matching matches (Match result / Match winner).
+  // Round 3 (item 1): each price carries its data-odd-key, so the live tick
+  // updates it in place — a search result can never go stale while the
+  // match page shows the moved price.
   const oddsItems=[];
   matches.slice(0,3).forEach(m=>{
     if(!m._markets) m._markets=marketsFor(m);
     const mr=(m._markets["Popular"]||[]).find(mk=>mk.label==="Match result"||mk.label==="Match winner");
-    if(mr) mr.opts.forEach(op=>oddsItems.push({label:op.n+" @ "+fmt(op.odds), matchId:m.id, sub:m.home+" v "+m.away+" · "+mr.label}));
+    if(mr) mr.opts.forEach(op=>oddsItems.push({sel:op.n, odds:op.odds, key:oddKey(m, mr.label, op.n), matchId:m.id, sub:m.home+" v "+m.away+" · "+mr.label}));
   });
   // Markets group: every market label on the featured match page, with its group,
   // so a market result opens the match page on the right market tab.
+  // Round 3 (item 17): index the option names too ("Over 2.5", "Yes") — a
+  // search for a market LINE must find it, not just the market name.
   const mkIndex=[];
   const feat=MATCHES[0];
   if(!feat._markets) feat._markets=marketsFor(feat);
-  Object.entries(feat._markets).forEach(([g, mkts])=>mkts.forEach(mk=>mkIndex.push({label:mk.label, group:g})));
+  Object.entries(feat._markets).forEach(([g, mkts])=>mkts.forEach(mk=>{
+    mkIndex.push({label:mk.label, group:g, sub:g+" · "+feat.home+" v "+feat.away});
+    mk.opts.forEach(op=>mkIndex.push({label:op.n, group:g, sub:mk.label+" · "+g+" · "+feat.home+" v "+feat.away}));
+  }));
   const markets=mkIndex.filter(x=>x.label.toLowerCase().includes(q));
   if(!teams.length&&!comps.length&&!players.length&&!markets.length&&!matches.length&&!oddsItems.length)
     return `<div class="search-results"><div class="empty card"><div class="big">🔍</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
   let h=`<div class="search-results">`;
   if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>`<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${m.status==="live"?liveMeta(m):esc(m.date)+" "+m.time} · ${esc(m.comp)}</span></button>`).join(""); }
-  if(oddsItems.length){ h+=`<div class="sr-group">Odds</div>`+oddsItems.slice(0,6).map(o=>`<button class="sr-item" onclick="goMatch('${o.matchId}')"><span class="tag">Odds</span><span class="nm">${esc(o.label)}</span><span class="meta">${esc(o.sub)}</span></button>`).join(""); }
+  if(oddsItems.length){ h+=`<div class="sr-group">Odds</div>`+oddsItems.slice(0,6).map(o=>`<button class="sr-item" onclick="goMatch('${o.matchId}')"><span class="tag">Odds</span><span class="nm" data-odd-key="${esc(o.key)}">${esc(o.sel)} @ <span class="vl">${fmt(o.odds)}</span></span><span class="meta">${esc(o.sub)}</span></button>`).join(""); }
   if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
   if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
   if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
-  if(markets.length){ const lm=MATCHES.find(m=>m.sport==="Soccer"&&m.status==="live")||MATCHES[0]; h+=`<div class="sr-group">Markets</div>`+markets.slice(0,6).map(mk=>`<button class="sr-item" onclick="goMatch('${lm.id}', '${esc(mk.group)}')"><span class="tag">Market</span><span class="nm">${esc(mk.label)}</span><span class="meta">${esc(mk.group)} · ${esc(lm.home)} v ${esc(lm.away)}</span></button>`).join(""); }
+  if(markets.length){ h+=`<div class="sr-group">Markets</div>`+markets.slice(0,6).map(mk=>`<button class="sr-item" onclick="goMatch('${feat.id}', '${esc(mk.group)}')"><span class="tag">Market</span><span class="nm">${esc(mk.label)}</span><span class="meta">${esc(mk.sub)}</span></button>`).join(""); }
   return h+`</div>`;
 }
 
@@ -1205,11 +1395,11 @@ function pageHome(){
   <div class="card">${yourMatches.map(m=>matchRow(m)).join("")}</div>
   <div class="sec-head"><h2>Top competitions</h2><a href="#/football">All football ›</a></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    ${COMPS.map(c=>{ const n=MATCHES.filter(m=>m.comp===c).length; const fol=follows.comps.includes(c); return `<button class="pill" onclick="footComp='${esc(c)}';go('#/football')"><span class="dot"></span>🏆 ${esc(c)} · ${n} matches <span onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" style="cursor:pointer">${fol?"★":"☆"}</span></button>`; }).join("")}
+    ${COMPS.map(c=>{ const n=MATCHES.filter(m=>m.comp===c).length; const fol=follows.comps.includes(c); return `<button class="pill" onclick="footComp='${esc(c)}';go('#/football')"><span class="dot"></span>🏆 ${esc(c)} · ${n} matches <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${fol?"★":"☆"}</span></button>`; }).join("")}
   </div>
   <div class="sec-head"><h2>Featured matches</h2><a href="#/football">All football ›</a></div>
   <div class="feat-grid">${featured.map(featCard).join("")}</div>
-  <div class="sec-head"><h2>Upcoming events</h2></div>
+  <div class="sec-head"><h2>Starting soon</h2></div>
   <div class="card">${upcoming.map(m=>matchRow(m)).join("")}</div>
   <div class="footer-note"><span class="badge-demo">Demo prototype</span> &nbsp;Sample fixtures and odds only — no real players, no real money, no wallet connection. Built for the Housebets Sportsbook design contest.</div>`;
 }
@@ -1260,7 +1450,7 @@ function pageFootball(){
   return `
   <h1>Football</h1>
   <p class="muted small" style="margin:6px 0 14px">Top competitions — tap ★ to follow a team or a competition.</p>
-  <div class="mtabs">${COMPS.map(c=>`<button class="mtab ${footComp===c?"on":""}" onclick="footComp='${esc(c)}';render()">${esc(c)} <span onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" style="cursor:pointer">${follows.comps.includes(c)?"★":"☆"}</span></button>`).join("")}</div>
+  <div class="mtabs">${COMPS.map(c=>`<button class="mtab ${footComp===c?"on":""}" onclick="footComp='${esc(c)}';render()">${esc(c)} <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${follows.comps.includes(c)?"★":"☆"}</span></button>`).join("")}</div>
   <div class="filters">
     <button class="fchip ${footMarket==="1x2"?"on":""}" onclick="footMarket='1x2';render()">Match result</button>
     <button class="fchip ${footMarket==="ou"?"on":""}" onclick="footMarket='ou';render()">Total goals</button>
@@ -1293,7 +1483,7 @@ function pageMatch(id){
   const clockHTML = !live ? `<span class="clock">${esc(m.date||"")}</span>`
     : m.sport==="Tennis" ? `<span class="clock">${esc(m.setScore||"Sets")} · Set ${((m.setScore||"").split(",").length)+1} <span data-tgames="${m.id}">${(m.games||[0,0])[0]}–${(m.games||[0,0])[1]}</span></span>`
     : m.sport==="Basketball" ? `<span class="clock">${esc(m.period||"")}</span>`
-    : `<span class="clock" data-clock="${m.minute}">${m.minute}′ 00″</span>`;
+    : `<span class="clock" data-clock="${m.minute}">${curMin(m)}′ ${String(curSec()).padStart(2,"0")}″</span>`;
   const halfLabel = live ? (m.sport==="Soccer" ? "2nd half" : m.sport) : "";
   const mkts=m._markets[matchTab];
   const tl = TIMELINE[m.id];
@@ -1319,11 +1509,13 @@ function pageMatch(id){
   </div>
   ${mkts.map(mk=>{
     const susp = mk.suspended || isSuspended(m, mk.label);
+    const sk = marketKey(m.id, mk.label);
+    const srem = susp ? suspRemaining(sk) : null;
     return `<div class="market"><h3>${esc(mk.label)} ${susp?'<span class="susp-tag">⛔ Suspended</span>':""}</h3>
       <div class="odds-grid ${mk.opts.length===2?"two":""}">
         ${mk.opts.map(op=>oddsBtn(m, mk.label, {...op, suspended:susp})).join("")}
       </div>
-      ${susp?'<div class="small muted" style="margin-top:6px">This market is suspended — odds are locked while play is stopped. Tapping does nothing.</div>':""}
+      ${susp?`<div class="small muted" style="margin-top:6px">This market is suspended — odds are locked while play is stopped. Tapping does nothing.${srem!==null?` Reopens in <span data-susp-count="${sk}">${srem}s</span>. <button onclick="unsuspendMarket('${sk}')" style="background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
     </div>`;
   }).join("")}
   <div class="card" style="padding:13px 14px;margin-top:6px">
@@ -1357,7 +1549,7 @@ function pageBets(){
   <details class="demo-tips">
     <summary>💡 Prototype tips — how to see every state</summary>
     <ul>
-      <li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons in the slip panel — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>
+      <li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons below the slip — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>
       <li><b>Odds moving:</b> prices nudge every few seconds and flash green/red — on this page and the match page.</li>
       <li><b>Odds changed:</b> leave a selection in the slip; when its price moves you'll see “Odds changed” and must tap <b>Accept</b> before placing.</li>
       <li><b>Suspended:</b> on the Arsenal match page, the <b>Corners &amp; cards</b> group and <b>Next goal</b> are suspended (locked). Live markets also suspend briefly from time to time — a suspended selection in the slip can't be placed.</li>
@@ -1377,6 +1569,8 @@ function render(){
   const [path, query]=hash.replace(/^#\//,"").split("?");
   const seg=path.split("/");
   const route=seg[0]||"home";
+  // Round 3 (item 9): the Bets page is the slip — hide the side panel there.
+  document.body.classList.toggle("route-bets", route==="bets");
   const view=$("#view");
   // Only close the mobile slip sheet on real navigation — a re-render from a
   // live timer (odds tick, suspension, VAR) must not yank it shut mid-use.
