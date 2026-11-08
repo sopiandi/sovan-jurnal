@@ -410,7 +410,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
    the seeded demo (balance 1,250 USDT, seeded My bets). This runs BEFORE any
    state is read from localStorage. The version is also shown in the footer
    ("Build v5") so a reviewer can tell which build is actually rendering. */
-const BUILD_VERSION = "8";
+const BUILD_VERSION = "9";
 (function(){
   let stored = null;
   try{ stored = localStorage.getItem("hb-proto-version"); }catch(e){}
@@ -505,6 +505,130 @@ const MATCHES = [
    match (loadLiveState, the clock engine, settlement). restartFeaturedMatch
    restores the featured match from this, never from a guessed constant. */
 MATCHES.forEach(m=>{ m._seed = {minute:m.minute||0, hs:m.hs, as:m.as, status:m.status, period:m.period||null, setScore:m.setScore||null, games:m.games?m.games.slice():null}; });
+/* Round 9 — the score engine recomputes from the SEED, so the seeded
+   scorers/corners/cards are captured here, before loadLiveState() can
+   restore a persisted (already-generated) list over them. */
+MATCHES.forEach(m=>{ m._seedScorers = (m.scorers || []).slice(); m._seedCorners = m.corners || 0; m._seedCards = m.cards || 0; });
+/* Round 9 (item 3) — LIVE SCORE ENGINE. A live match's score must move
+   while it plays (the Round 8 build froze every score: Arsenal 1-0 for 39
+   minutes, Lakers 78-71 all game). The engine is a PURE function of the
+   seeded state + the live minute, so every tab and every reload computes
+   the same score — never re-randomised, never double-applied.
+   Soccer: a fixed per-match goal schedule (tuned so the acceptance tests
+   hold: Inter stays 0-0 until 89' so a Draw cash-out can be watched
+   shortening to ~1.10 at 88'; Arsenal scores at 61' so a 15-minute watch
+   sees a goal). Corners/cards come from a hash schedule (see hash01).
+   Basketball: a hash schedule of baskets from game start (see bbEvents).
+   Judge goals/baskets (m._judgeGoals / m._judgeBaskets) are layered on top
+   by the ?judge=1 triggers and survive a sync because they are stored,
+   not re-derived. */
+function hash01(s){
+  let h = 2166136261;
+  for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 10000) / 10000; // NOTE: %10000, not /2^32 — the raw
+  // FNV high bits barely move between strings sharing a prefix (verified:
+  // 'm21|bbt|0'..'9' all landed 0.25-0.31), so the modulo form is the one
+  // that is actually uniform.
+}
+const GOAL_SCHEDULE = {
+  m1: [{min:61, team:"home", scorer:"ARS No. 7"}, {min:78, team:"away", scorer:"BHA No. 9"}],
+  m2: [{min:70, team:"away", scorer:"CHE No. 20"}, {min:84, team:"home", scorer:"MCI No. 9"}],
+  m3: [{min:76, team:"home", scorer:"RMA No. 9"}],
+  m4: [{min:89, team:"home", scorer:"INT No. 10"}],
+  m5: [{min:79, team:"away", scorer:"DOR No. 9"}]
+};
+function goalEvents(m){
+  // Goals scheduled after the seeded minute, for any live soccer match.
+  // Seeded live matches use the tuned table; anything else (e.g. a match
+  // that goes live later) gets a hash schedule: ~2.5% per minute.
+  const table = GOAL_SCHEDULE[m.id];
+  if(table) return table;
+  const out = [];
+  const scH = SCORERS[m.home] || ["Top scorer"], scA = SCORERS[m.away] || ["Top scorer"];
+  for(let k = 1; k <= 90; k++){
+    if(hash01(m.id + "|goal|" + k) < 0.025){
+      const home = hash01(m.id + "|goalt|" + k) < 0.55;
+      const list = home ? scH : scA;
+      out.push({min: k, team: home ? "home" : "away", scorer: list[Math.floor(hash01(m.id + "|goals|" + k) * list.length)] || list[0]});
+    }
+  }
+  return out;
+}
+/* Sync a live soccer match's score/corners/cards/scorers from the engine.
+   Idempotent: the score is always recomputed from the SEED + the events
+   up to the current minute, so a reload or a second tab lands on the same
+   numbers. Only runs for a match actually in play (not FT/void/HT-paused
+   — the clock is frozen at 45' during half time anyway). Returns true if
+   anything changed. */
+function syncLiveScore(m){
+  // Round 9 (item 3): sync while the match is live and not yet processed
+  // as full time. The guard is m._ft (set when FT is processed), NOT
+  // isFT(m): when the clock jumps to 90' in one step, the final goals
+  // (up to 90') must still land before the match is settled — isFT is
+  // already true at 90', so guarding on it would freeze the score a goal
+  // short of the real final.
+  if(!m || m.sport !== "Soccer" || m.status !== "live" || m._ft || isVoided(m)) return false;
+  const min = curMin(m);
+  const seedMin = (m._seed && m._seed.minute) || 0;
+  const seedHs = (m._seed && m._seed.hs) || 0, seedAs = (m._seed && m._seed.as) || 0;
+  const sched = goalEvents(m).filter(e => e.min > seedMin && e.min <= min);
+  const judge = (m._judgeGoals || []).filter(e => e.min <= min);
+  const all = sched.concat(judge);
+  const nhs = seedHs + all.filter(e => e.team === "home").length;
+  const nas = seedAs + all.filter(e => e.team === "away").length;
+  const nscorers = (m._seedScorers || []).concat(all.map(e => ({p: e.scorer, min: e.min, half: e.min <= 45 ? 1 : 2})));
+  let ncorners = m._seedCorners || 0, ncards = m._seedCards || 0;
+  for(let k = seedMin + 1; k <= min; k++){
+    if(hash01(m.id + "|corner|" + k) < 0.13) ncorners++;
+    if(hash01(m.id + "|card|" + k) < 0.04) ncards++;
+  }
+  const changed = m.hs !== nhs || m.as !== nas || m.corners !== ncorners || m.cards !== ncards
+    || JSON.stringify(m.scorers || []) !== JSON.stringify(nscorers);
+  if(!changed) return false;
+  m.hs = nhs; m.as = nas; m.scorers = nscorers; m.corners = ncorners; m.cards = ncards;
+  return true;
+}
+/* Basketball scoring events: one basket roughly every 52s of game time
+   (2 pts 68%, 3 pts 32%), home side slightly favoured. Pure function of
+   the game clock, so all tabs agree. */
+function bbEvents(m){
+  const out = [];
+  for(let i = 0; ; i++){
+    const t = 40 + i * 52 + (hash01(m.id + "|bb|" + i) - 0.5) * 20;
+    if(t > 2880) break;
+    out.push({t, home: hash01(m.id + "|bbt|" + i) < 0.56, pts: hash01(m.id + "|bbp|" + i) < 0.68 ? 2 : 3});
+  }
+  return out;
+}
+function bbElapsed(m){
+  const b = bbBase(m);
+  return (b.q - 1) * BB_QSEC + (BB_QSEC - b.sec) + Math.floor((Date.now() - b.at) / 1000);
+}
+function syncBbScore(m){
+  // Round 9 (item 3): sync while the game is live and not yet processed
+  // as over. The guard is m._finished (set when the game is processed),
+  // NOT bbOver(m): when the clock jumps past 00:00 in one step, the final
+  // baskets (up to 2880s) must still land before the game is settled —
+  // bbOver is already true at 00:00, so guarding on it froze the score
+  // at the pre-final value (the audit's Lakers 78-71 freeze, in miniature).
+  if(!m || m.sport !== "Basketball" || m.status !== "live" || m._finished || isVoided(m)) return false;
+  const el = Math.min(2880, bbElapsed(m));
+  const seedEl = (m._seed && m._seed.period) ? (() => {
+    const parts = String(m._seed.period).split(" ");
+    const q = parseInt((parts[0] || "Q1").slice(1), 10) || 1;
+    const t = (parts[1] || "12:00").split(":");
+    return (q - 1) * BB_QSEC + (BB_QSEC - ((parseInt(t[0], 10) || 0) * 60 + (parseInt(t[1], 10) || 0)));
+  })() : 0;
+  const seedHs = (m._seed && m._seed.hs) || 0, seedAs = (m._seed && m._seed.as) || 0;
+  let nhs = seedHs, nas = seedAs;
+  for(const e of bbEvents(m)){
+    if(e.t > seedEl && e.t <= el){ if(e.home) nhs += e.pts; else nas += e.pts; }
+  }
+  for(const j of (m._judgeBaskets || [])){ if(j.home) nhs += j.pts; else nas += j.pts; }
+  if(m.hs === nhs && m.as === nas) return false;
+  m.hs = nhs; m.as = nas;
+  return true;
+}
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
 /* Match events for the featured live match — shirt numbers only, and consistent
    with the fixture itself (Arsenal 1–0 Brighton, 52'): the only goal is at 31'. */
@@ -533,7 +657,13 @@ function rngStream(seed){
   let a = Math.floor(seed * 1e9) + 1;
   return function(){ a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; };
 }
-function marketsFor(m){
+function marketsFor(m, opts){
+  opts = opts || {};
+  // opts.noOverlay — build the markets from the seeded/engine state only,
+  // without the persisted live-price drift. Used by the cash-out model
+  // (Round 9, item 2): the cash-out value must be a deterministic function
+  // of the match state, identical in every tab — the per-tab drifted
+  // overlay is exactly what made two tabs disagree.
   const o=m.odds;
   // Non-soccer matches get their own markets — no Draw, no soccer-only groups.
   if(m.sport==="Tennis"){
@@ -617,7 +747,8 @@ function marketsFor(m){
       for(const k of Object.keys(groups)) groups[k] = groups[k].filter(mk=>!mk._dead);
     }
     // Persisted live-price overlay (item 8) — a rebuild never resets drift.
-    if(m._overlay){
+    // Skipped when opts.noOverlay (the cash-out model's clean price).
+    if(m._overlay && !opts.noOverlay){
       for(const list of Object.values(groups)) for(const mk of list){
         mk.opts.forEach(op=>{ const v = m._overlay[mk.label+"|"+op.n]; if(typeof v==="number") op.odds = v; });
       }
@@ -629,21 +760,45 @@ function marketsFor(m){
     }
     return groups;
   }
-  if(m.sport==="Basketball") return {
-    "Popular":[
-      {label:"Match winner", type:"mw", opts:[{n:m.home,odds:o.h},{n:m.away,odds:o.a}]},
-      {label:"Point spread", type:"sp", opts:[{n:m.home+" −5.5",odds:1.91},{n:m.away+" +5.5",odds:1.91}]},
-      {label:"Total points 224.5", type:"ou", opts:[{n:"Over 224.5",odds:1.90},{n:"Under 224.5",odds:1.90}]}
-    ],
-    "Spread":[
-      {label:"Point spread −9.5 / +9.5", type:"sp", opts:[{n:m.home+" −9.5",odds:2.35},{n:m.away+" +9.5",odds:1.60}]},
-      {label:"Point spread −2.5 / +2.5", type:"sp", opts:[{n:m.home+" −2.5",odds:1.65},{n:m.away+" +2.5",odds:2.20}]}
-    ],
-    "Totals":[
-      {label:"Total points 214.5", type:"ou", opts:[{n:"Over 214.5",odds:1.65},{n:"Under 214.5",odds:2.20}]},
-      {label:"Total points 234.5", type:"ou", opts:[{n:"Over 234.5",odds:2.30},{n:"Under 234.5",odds:1.62}]}
-    ]
-  };
+  if(m.sport==="Basketball"){
+    const groups = {
+      "Popular":[
+        {label:"Match winner", type:"mw", opts:[{n:m.home,odds:o.h},{n:m.away,odds:o.a}]},
+        {label:"Point spread", type:"sp", opts:[{n:m.home+" −5.5",odds:1.91},{n:m.away+" +5.5",odds:1.91}]},
+        {label:"Total points 224.5", type:"ou", opts:[{n:"Over 224.5",odds:1.90},{n:"Under 224.5",odds:1.90}]}
+      ],
+      "Spread":[
+        {label:"Point spread −9.5 / +9.5", type:"sp", opts:[{n:m.home+" −9.5",odds:2.35},{n:m.away+" +9.5",odds:1.60}]},
+        {label:"Point spread −2.5 / +2.5", type:"sp", opts:[{n:m.home+" −2.5",odds:1.65},{n:m.away+" +2.5",odds:2.20}]}
+      ],
+      "Totals":[
+        {label:"Total points 214.5", type:"ou", opts:[{n:"Over 214.5",odds:1.65},{n:"Under 214.5",odds:2.20}]},
+        {label:"Total points 234.5", type:"ou", opts:[{n:"Over 234.5",odds:2.30},{n:"Under 234.5",odds:1.62}]}
+      ]
+    };
+    // Round 9 (item 6) — a total line whose outcome is already decided
+    // closes: Over is won once the points scored pass the line, and Over
+    // is impossible once even the maximum points still scoreable (a
+    // generous 6 combined points per minute left) cannot reach it.
+    if(m.status==="live"){
+      const total = (m.hs || 0) + (m.as || 0);
+      const bb = bbNow(m);
+      const remSec = bb.over ? 0 : (4 - bb.q) * BB_QSEC + bb.sec;
+      const maxAdd = Math.ceil(remSec / 60 * 6);
+      for(const g of Object.keys(groups)){
+        groups[g] = groups[g].filter(mk=>{
+          const mm = mk.label.match(/^Total points (\d+(?:\.\d+)?)$/);
+          if(!mm) return true;
+          const line = parseFloat(mm[1]);
+          if(total > line) return false; // Over already won
+          if(total + maxAdd < line) return false; // Over can no longer happen
+          return true;
+        });
+      }
+      for(const g of Object.keys(groups)) if(!groups[g].length) delete groups[g];
+    }
+    return groups;
+  }
   // Round 3 — per-match odds, derived from THIS match's 1X2 odds plus a
   // seed hashed from the fixture identity. Same match → same prices on
   // every load; different matches → different prices. The favourite's price
@@ -683,8 +838,20 @@ function marketsFor(m){
   // shorter scorelines); double chance is derived from the 1X2 itself.
   const csScale = clamp(fav / 1.30, 0.7, 1.6);
   const cs = v => +(v * csScale).toFixed(2);
-  const dc = (x, y) => +(1 / ((1 / x + 1 / y) / 1.08) * 0.97).toFixed(2);
+  // Round 9 (item 5) — double chance MUST be cheaper than either single
+  // it covers. The old formula (1.08 overround ÷ 0.97) priced "City or
+  // Chelsea" at 1.11 above City alone at 1.08. The correct price comes
+  // from the combined probability: 1 / (1/x + 1/y) is always below both
+  // x and y (the two outcomes' probabilities add), so the DC can never
+  // cost more than its cheapest single.
+  const dc = (x, y) => +(1 / (1 / x + 1 / y)).toFixed(2);
   const scH=SCORERS[m.home]||["Top scorer"], scA=SCORERS[m.away]||["Top scorer"];
+  // Round 9 (item 15c): ONE player list for every goalscorer market —
+  // Anytime / First / 2+ / Last / 2nd-half / Next all offer the same
+  // players (2 home + 2 away), so a player never appears in one market
+  // and vanishes from another.
+  const gsHome = (base, step) => scH.slice(0,2).map((p,i)=>({n:p, odds:gs(base+i*step)}));
+  const gsAway = (base, step) => scA.slice(0,2).map((p,i)=>({n:p, odds:gs(base+i*step)}));
   const cornersSuspended = m.home==="Arsenal" && m.away==="Brighton & Hove Albion";
   // SINGLE SOURCE OF TRUTH (item 1): "Both teams to score" and "Total goals
   // 2.5" appear in BOTH Popular and Goals — they must be the SAME market
@@ -737,12 +904,12 @@ function marketsFor(m){
       {label:"Asian handicap −2.5 / +2.5", type:"ah", opts:[{n:m.home+" −2.5",odds:j(3.40)},{n:m.away+" +2.5",odds:j(1.30)}]}
     ],
     "Goalscorers":[
-      {label:"Anytime goalscorer", type:"ags", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:gs(2.10+i*0.5)})).concat(scA.slice(0,2).map((p,i)=>({n:p,odds:gs(3.10+i*0.7)})))},
-      {label:"First goalscorer", type:"fgs", opts:scH.slice(0,2).map((p,i)=>({n:p,odds:gs(4.50+i*1.0)})).concat(scA.slice(0,1).map(p=>({n:p,odds:gs(8.50)})))},
-      {label:"Next goalscorer", type:"ngs", suspended:true, opts:[{n:scH[0],odds:gs(3.20)},{n:scA[0],odds:gs(6.00)},{n:"No more goals",odds:gs(5.50)}]},
-      {label:"To score 2+ goals", type:"2g", opts:[{n:scH[0],odds:gs(9.00)},{n:scA[0],odds:gs(17.00)}]},
-      {label:"Last goalscorer", type:"lgs", opts:[{n:scH[0],odds:gs(5.50)},{n:scH[1],odds:gs(8.00)},{n:scA[0],odds:gs(11.00)}]},
-      {label:"To score in 2nd half", type:"2h", opts:[{n:scH[0],odds:gs(4.50)},{n:scH[1],odds:gs(6.00)},{n:scA[0],odds:gs(9.00)}]}
+      {label:"Anytime goalscorer", type:"ags", opts:gsHome(2.10,0.5).concat(gsAway(3.10,0.7))},
+      {label:"First goalscorer", type:"fgs", opts:gsHome(4.50,1.0).concat(gsAway(8.50,1.0))},
+      {label:"Next goalscorer", type:"ngs", suspended:true, opts:gsHome(3.20,1.0).concat(gsAway(6.00,1.5)).concat([{n:"No more goals",odds:gs(5.50)}])},
+      {label:"To score 2+ goals", type:"2g", opts:gsHome(9.00,2.0).concat(gsAway(17.00,3.0))},
+      {label:"Last goalscorer", type:"lgs", opts:gsHome(5.50,2.5).concat(gsAway(11.00,2.0))},
+      {label:"To score in 2nd half", type:"2h", opts:gsHome(4.50,1.5).concat(gsAway(9.00,2.0))}
     ],
     "Corners & cards": cornersSuspended ? [
       {label:"Total corners", type:"corn", suspended:true, opts:[{n:"Over 9.5",odds:j(1.85)},{n:"Under 9.5",odds:j(1.95)}]},
@@ -760,6 +927,16 @@ function marketsFor(m){
       {label:"Total corners 8.5", type:"corn", opts:[{n:"Over 8.5",odds:j(1.55)},{n:"Under 8.5",odds:j(2.40)}]}
     ]
   };
+  // Round 9 (item 7): "Next goal" and "Next goalscorer" say nothing until
+  // the match has started — on a match whose kickoff is still in the
+  // future they must not even appear (the old build showed them
+  // SUSPENDED). Once the match has started (live or started) they stay,
+  // suspended, until the next goal.
+  if(m.status==="upcoming" && !isStarted(m)){
+    for(const g of Object.keys(groups)){
+      groups[g] = groups[g].filter(mk => mk.label !== "Next goal" && mk.label !== "Next goalscorer");
+    }
+  }
   // Impossible markets (item 7): a live match past a point in the game can
   // no longer offer a market whose outcome is already decided. Decide from
   // the match's LIVE minute + score + scorers + half-time score — never from
@@ -771,17 +948,34 @@ function marketsFor(m){
   // every option is decided is removed whole. Handicaps are never decided
   // mid-match (any final margin is still mathematically possible) — they
   // close at full time like everything else.
-  if(m.status==="live"){
-    const min = curMin(m), goals = (m.hs || 0) + (m.as || 0);
-    const scorers = m.scorers || [];
+  // Round 9 (items 7, 10) — the impossible-market gate runs for every match
+  // that is actually in play: live matches AND started matches (kickoff
+  // passed, still listed as upcoming). A started match's minute/score come
+  // from its derived state, so "First goal before 30:00" and "First
+  // goalscorer" close on it just like on a live match.
+  const eff = m.status==="live" ? null : (isStarted(m) ? startedInfo(m) : null);
+  const effHT = eff && eff.min >= 45 ? (()=>{
+    let hh = 0, aa = 0;
+    for(const s of eff.scorers) if(s.half===1){ if(teamOfPlayer(s.p)===m.home) hh++; else aa++; }
+    return {hs: hh, as: aa};
+  })() : null;
+  if(m.status==="live" || eff){
+    const min = eff ? eff.min : curMin(m);
+    const mhs = eff ? eff.hs : (m.hs || 0), mas = eff ? eff.as : (m.as || 0);
+    const goals = mhs + mas;
+    const scorers = eff ? eff.scorers : (m.scorers || []);
     const scored = new Set(scorers.map(s=>s.p));
     const goalsOf = p => scorers.filter(s=>s.p===p).length;
     const scored2nd = new Set(scorers.filter(s=>s.half===2).map(s=>s.p));
-    const ht = (isFirstHalfOver(m) && m.ht) ? m.ht : null; // half-time score, known once the 1st half is over (incl. during half time)
+    const ht = eff ? effHT : ((isFirstHalfOver(m) && m.ht) ? m.ht : null); // half-time score, known once the 1st half is over (incl. during half time)
     const htWin = ht ? (ht.hs>ht.as?"H":ht.hs<ht.as?"A":"D") : null;
-    const h2hs = ht ? Math.max(0,(m.hs||0)-ht.hs) : 0; // 2nd-half goals (home)
-    const h2as = ht ? Math.max(0,(m.as||0)-ht.as) : 0; // 2nd-half goals (away)
+    const h2hs = ht ? Math.max(0,mhs-ht.hs) : 0; // 2nd-half goals (home)
+    const h2as = ht ? Math.max(0,mas-ht.as) : 0; // 2nd-half goals (away)
     const h2 = h2hs + h2as, htGoals = ht ? ht.hs+ht.as : 0;
+    // Round 9 (item 6): the most goals that can still be scored — about
+    // one goal every 4 minutes, rounded up — so a total line the match
+    // can no longer reach closes instead of being sold.
+    const maxAdd = Math.ceil(Math.max(0, 90 - min) / 4);
     const deadLabel = label =>
       // Round 7 (item 1/3): a 1st-half market is decided the moment half
       // time starts — not at 46'. During the half-time pause the 1st half
@@ -793,11 +987,11 @@ function marketsFor(m){
       (label === "Team to score first" && goals > 0) ||
       (label === "First goalscorer" && goals > 0) ||
       // BTTS is decided once both teams have scored (Yes won, No lost).
-      (label === "Both teams to score" && (m.hs||0)>0 && (m.as||0)>0) ||
+      (label === "Both teams to score" && mhs>0 && mas>0) ||
       // A "win to nil" is decided once the opponent has scored.
-      (label === (m.home+" to win to nil") && (m.as||0)>0) ||
+      (label === (m.home+" to win to nil") && mas>0) ||
       // BTTS & total goals 2.5: decided once both scored AND the total passed 2.5.
-      (label === "BTTS & total goals 2.5" && (m.hs||0)>0 && (m.as||0)>0 && goals>2.5) ||
+      (label === "BTTS & total goals 2.5" && mhs>0 && mas>0 && goals>2.5) ||
       // "Both halves — home to win": dead if home did NOT win the 1st half.
       (label === ("Both halves — "+m.home+" to win") && htWin && htWin!=="H") ||
       // "Half with most goals": dead once the 2nd half already has more goals.
@@ -813,9 +1007,12 @@ function marketsFor(m){
       groups[g] = groups[g].filter(mk=>{
         if(deadLabel(mk.label)) return false;
         const line = ouLine(mk.label);
-        if(line!==null && goals>line) return false;
-        if(mk.label === (m.home+" total goals") && (m.hs||0)>1.5) return false;
-        if(mk.label === (m.away+" total goals") && (m.as||0)>0.5) return false;
+        // Round 9 (item 6): a total line closes when the total already
+        // passed it (Over won) OR when even the maximum still-scoreable
+        // goals cannot reach it (Over impossible).
+        if(line!==null && (goals>line || goals+maxAdd<line)) return false;
+        if(mk.label === (m.home+" total goals") && (mhs>1.5 || mhs+maxAdd<1.5)) return false;
+        if(mk.label === (m.away+" total goals") && (mas>0.5 || mas+maxAdd<0.5)) return false;
         // Total corners / cards: decided once the count passed the line.
         if(mk.type==="corn" || mk.type==="cards"){
           let ln = null, cnt = 0;
@@ -832,21 +1029,23 @@ function marketsFor(m){
     for(const list of Object.values(groups)) for(const mk of list){
       if(mk.label === "Exact score"){
         // A final score must have at least the goals already scored.
-        mk.opts = mk.opts.filter(op=>{ const p=op.n.split("-"); return (+p[0])>=(m.hs||0) && (+p[1])>=(m.as||0); });
+        mk.opts = mk.opts.filter(op=>{ const p=op.n.split("-"); return (+p[0])>=mhs && (+p[1])>=mas; });
         // Round 7 (item 7): the score currently on the board must always be
         // offered, and every Exact-score price is repriced off the score +
         // minute (a 3-0 at 71' is not 15.47 for 3-1 — the Poisson model
         // prices each final score off the goals still to come).
-        const cur = (m.hs||0)+"-"+(m.as||0);
-        if(!mk.opts.some(op=>op.n===cur)) mk.opts.push({n:cur, odds:exactScorePrice(m, m.hs||0, m.as||0)});
+        const cur = mhs+"-"+mas;
+        if(!mk.opts.some(op=>op.n===cur)) mk.opts.push({n:cur, odds:exactScorePrice(m, mhs, mas)});
         mk.opts.forEach(op=>{ const p=op.n.split("-"); op.odds = exactScorePrice(m, +p[0], +p[1]); });
         mk.opts.sort((a,b)=>{ const pa=a.n.split("-"), pb=b.n.split("-"); return (+pa[0]-+pb[0]) || (+pa[1]-+pb[1]); });
       }
-      if(mk.label === "BTTS & total goals 2.5" && goals > 2.5){
+      if(mk.label === "BTTS & total goals 2.5" && (goals > 2.5 || goals+maxAdd < 2.5)){
         // Round 7 (item 7): once 3 goals have landed, the "Over 2.5" leg is
         // already decided — "Yes & Over 2.5" is no longer a combo (it is just
         // BTTS at a stale price) and "Yes & Under 2.5" has already lost.
-        // Both options go, so the market closes whole.
+        // Both options go, so the market closes whole. Round 9 (item 6):
+        // the same holds in the other direction — once even the maximum
+        // still-scoreable goals cannot reach 2.5, the Over leg is dead.
         mk.opts = [];
       }
       if(mk.label === "Half-time / Full-time" && htWin){
@@ -883,7 +1082,8 @@ function marketsFor(m){
   // Round 7 (item 8): re-apply the persisted live-price overlay so a
   // rebuild (gate crossing, reload) never resets drifted prices to the
   // seeded values — a reload shows the same prices, not a re-randomised set.
-  if(m._overlay){
+  // Skipped when opts.noOverlay (the cash-out model's clean price).
+  if(m._overlay && !opts.noOverlay){
     for(const list of Object.values(groups)) for(const mk of list){
       mk.opts.forEach(op=>{ const v = m._overlay[mk.label+"|"+op.n]; if(typeof v==="number") op.odds = v; });
     }
@@ -912,8 +1112,22 @@ try{ if("BroadcastChannel" in window) hbChannel = new BroadcastChannel("hb-proto
 function broadcastState(){
   try{ if(hbChannel) hbChannel.postMessage({t:"sync", at:Date.now()}); }catch(e){}
 }
-let follows = store.get("follows", {comps:["Premier League"], teams:["Arsenal"]});
-let myBets = store.get("mybets", null) || {
+/* Round 9 (item 12) — the reset marker. resetDemo sets it BEFORE removing
+   the state keys; every save refuses while it is set. That closes the
+   cross-tab race: another tab's 5-second autosave could otherwise re-save
+   the old live state (FT flags, settled bets) in the gap between the key
+   removal and that tab's reload, and the reset would silently not happen.
+   A tab that loads after a reset clears the marker — the keys are already
+   gone by then, so the fresh state is the seed and saves may resume. */
+function resetInProgress(){
+  try{ return localStorage.getItem("hb-proto-reset")==="1"; }catch(e){ return false; }
+}
+function clearResetMarker(){ try{ localStorage.removeItem("hb-proto-reset"); }catch(e){} }
+clearResetMarker();
+// The seeded demo state, as constants — resetDemo restores exactly these
+// in memory (and the reload re-reads them from the emptied storage).
+const SEED_FOLLOWS = {comps:["Premier League"], teams:["Arsenal"]};
+const SEED_MYBETS = {
   open:[{id:"b1", sel:"Arsenal to win", market:"Match result", match:"Arsenal v Brighton & Hove Albion", comp:"Premier League", odds:1.80, stake:20, placed:"Oct 17, 14:58", cashout:24.50, live:true}],
   settled:[
     {id:"b2", sel:"Manchester City to win", market:"Match result", match:"Man City 2–1 Arsenal", comp:"Premier League", odds:2.10, stake:10, result:"won", ret:21.00, placed:"Nov 6, 15:02"},
@@ -922,6 +1136,8 @@ let myBets = store.get("mybets", null) || {
     {id:"b5", sel:"ARS No. 9 anytime scorer", market:"Anytime goalscorer", match:"Arsenal 3–0 Tottenham", comp:"Premier League", odds:2.40, stake:10, result:"won", ret:24.00, placed:"Nov 7, 13:45"}
   ]
 };
+let follows = store.get("follows", SEED_FOLLOWS);
+let myBets = store.get("mybets", null) || JSON.parse(JSON.stringify(SEED_MYBETS));
 let slip = [];            // {key, matchId, match, comp, market, sel, odds, stake, oldOdds, suspended}
 let balance = store.get("balance", 1250); // sample demo balance in USDT; the seeded open bet (b1, $20) was placed before this session, so it is NOT deducted again at load
 if(typeof balance!=="number" || isNaN(balance) || balance<0) balance=1250;
@@ -1097,7 +1313,11 @@ const fmt = n => (Math.round(n*100)/100).toFixed(2);
    read (currentOdds) — so a stale persisted overlay or a derived price
    (Draw no bet at 0.88× / 0.55× of a short 1X2) can never surface. */
 const MIN_ODDS = 1.01;
-const clampOdds = v => { const n = +v; return (isNaN(n) || n < MIN_ODDS) ? MIN_ODDS : +n.toFixed(2); };
+// Round 9 (item 15g): ONE odds cap — 50.00, applied everywhere a price is
+// produced or moved. The old code capped only the displayed 1X2 price,
+// so a drifted odd could read 50.02 next to a 50.00 cap on the same page.
+const MAX_ODDS = 50;
+const clampOdds = v => { const n = +v; if(isNaN(n) || n < MIN_ODDS) return MIN_ODDS; return Math.min(MAX_ODDS, +n.toFixed(2)); };
 const fmtC = n => { // thousands-separated, for the balance display: 1,250.00
   const neg = n < 0, s = (Math.round(Math.abs(n)*100)/100).toFixed(2);
   const [i, d] = s.split(".");
@@ -1138,14 +1358,14 @@ function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); 
    reload came back with the old demo intact (FT matches stayed FT, the
    seeded open bet re-settled immediately). */
 let resetting = false;
-function saveAll(){ if(resetting) return; store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); broadcastState(); }
+function saveAll(){ if(resetting || resetInProgress()) return; store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); broadcastState(); }
 /* Round 7 (items 8, 9) — PERSISTED LIVE STATE. A reload must continue the
    demo, not re-randomise it: clock bases (soccer/basketball/tennis), scores,
    the score-aware 1X2 overlay, the tick-drift price overlay, and the
    finished / voided flags. All of it is derived state rebuilt from these
    seeds, so nothing is ever re-randomised on load. */
 function saveLiveState(){
-  if(resetting) return; // Round 8 (item 3): never re-save during a reset.
+  if(resetting || resetInProgress()) return; // Round 8 (item 3) + Round 9 (item 12): never re-save during a reset.
   try{
     const live = {};
     MATCHES.forEach(m=>{
@@ -1157,6 +1377,18 @@ function saveLiveState(){
       if(m._overlay) rec.overlay = m._overlay;
       if(m.hs!==null && m.hs!==undefined) rec.hs = m.hs;
       if(m.as!==null && m.as!==undefined) rec.as = m.as;
+      // Round 9 (item 3): the score engine's output — corners, cards,
+      // scorers and the judge-triggered goals/baskets — is part of the
+      // live state. The engine recomputes from the seed + the minute, so
+      // these are only needed to keep a reload byte-identical with the
+      // pre-reload state (and to keep a judge goal after a reload).
+      if(m.corners!==undefined) rec.corners = m.corners;
+      if(m.cards!==undefined) rec.cards = m.cards;
+      if(m.scorers) rec.scorers = m.scorers;
+      if(m.setScore) rec.setScore = m.setScore;
+      if(m.games) rec.games = m.games;
+      if(m._judgeGoals) rec.judgeGoals = m._judgeGoals;
+      if(m._judgeBaskets) rec.judgeBaskets = m._judgeBaskets;
       if(m._finished) rec.finished = true;
       if(m._void) rec.void = true;
       if(Object.keys(rec).length) live[m.id] = rec;
@@ -1178,6 +1410,13 @@ function loadLiveState(){
     if(rec.overlay) m._overlay = rec.overlay;
     if(rec.hs!==undefined) m.hs = rec.hs;
     if(rec.as!==undefined) m.as = rec.as;
+    if(rec.corners!==undefined) m.corners = rec.corners;
+    if(rec.cards!==undefined) m.cards = rec.cards;
+    if(rec.scorers) m.scorers = rec.scorers;
+    if(rec.setScore) m.setScore = rec.setScore;
+    if(rec.games) m.games = rec.games;
+    if(rec.judgeGoals) m._judgeGoals = rec.judgeGoals;
+    if(rec.judgeBaskets) m._judgeBaskets = rec.judgeBaskets;
     if(rec.finished) m._finished = true;
     if(rec.void) m._void = true;
     // A persisted finished soccer match stays finished even if its clock
@@ -1208,7 +1447,11 @@ function poissonP(k, lam){
   for(let i=1;i<=k;i++) p *= lam/i;
   return p;
 }
-function scoreAwareX2(m){
+/* Round 9 (item 2): the win probabilities of a live soccer match, from the
+   score-aware Poisson model — the SAME model that prices the live odds.
+   scoreAwareX2 prices them; liveCashout below consumes them directly, so
+   the cash-out value and the displayed odds can never disagree. */
+function scoreAwareProbs(m){
   const hs = m.hs||0, as = m.as||0;
   const rem = Math.max(0, 90 - curMin(m)) / 90;
   const lamH = 1.35 * rem, lamA = 1.15 * rem; // expected goals left (home/away)
@@ -1218,9 +1461,13 @@ function scoreAwareX2(m){
     const fh = hs+i, fa = as+j;
     if(fh>fa) pH+=p; else if(fh===fa) pD+=p; else pA+=p;
   }
+  return {h: pH, d: pD, a: pA};
+}
+function scoreAwareX2(m){
+  const pr = scoreAwareProbs(m);
   const over = 1.04;
   const price = p => Math.min(50, Math.max(1.02, +(over/Math.max(0.005,p)).toFixed(2)));
-  return {h: price(pH), d: price(pD), a: price(pA)};
+  return {h: price(pr.h), d: price(pr.d), a: price(pr.a)};
 }
 function exactScorePrice(m, fh, fa){
   const hs=m.hs||0, as=m.as||0;
@@ -1240,7 +1487,9 @@ function applyScoreOdds(m){
   m._overlay["Match result|"+m.home] = x2.h;
   m._overlay["Match result|Draw"] = x2.d;
   m._overlay["Match result|"+m.away] = x2.a;
-  const dc = (x, y) => +(1 / ((1 / x + 1 / y) / 1.08) * 0.97).toFixed(2);
+  // Round 9 (item 5): same combined-probability formula as marketsFor —
+  // a double chance is always cheaper than either single it covers.
+  const dc = (x, y) => +(1 / (1 / x + 1 / y)).toFixed(2);
   if(m._markets){
     const pop = m._markets["Popular"]||[];
     const mr = pop.find(mk=>mk.label==="Match result");
@@ -1275,23 +1524,25 @@ function applyScoreOdds(m){
   }
   // Push the new prices into the on-screen buttons (the same in-place
   // update the live tick uses — no full re-render needed).
-  document.querySelectorAll("[data-odd-key]").forEach(el=>{
-    const key = el.dataset.oddKey;
-    const parts = key.split("|");
-    if(parts.length!==3 || parts[0]!==m.id) return;
-    if(parts[1]!=="Match result") return;
-    let v = null;
-    if(parts[2]===m.home) v=x2.h; else if(parts[2]==="Draw") v=x2.d; else if(parts[2]===m.away) v=x2.a;
-    if(v!==null && v!==undefined){ const vl = el.querySelector(".vl"); if(vl) vl.textContent = fmt(v); }
-  });
-  if(m._markets){
-    const cs = (m._markets["Popular"]||[]).find(mk=>mk.label==="Exact score");
-    if(cs) cs.opts.forEach(op=>{
-      document.querySelectorAll(`[data-odd-key="${CSS.escape(m.id+"|Exact score|"+op.n)}"]`).forEach(el=>{
-        const vl = el.querySelector(".vl"); if(vl) vl.textContent = fmt(op.odds);
-      });
-    });
+  syncMatchOddButtons(m);
+}
+function syncMatchOddButtons(m){
+  // Round 9 (item 15g): push EVERY cached price for this match into its
+  // on-screen buttons — not just Match result and Exact score. The old
+  // applyScoreOdds left Double chance / Draw-no-bet buttons showing the
+  // pre-reprice values until a full re-render, so one page showed 49.98
+  // next to 50.00 for the same odd.
+  if(!m || !m._markets) return;
+  const byKey = {};
+  for(const list of Object.values(m._markets)) for(const mk of list) for(const op of mk.opts){
+    byKey[m.id+"|"+mk.label+"|"+op.n] = op.odds;
   }
+  document.querySelectorAll("[data-odd-key]").forEach(el=>{
+    const v = byKey[el.dataset.oddKey];
+    if(v===undefined) return;
+    const vl = el.querySelector(".vl");
+    if(vl) vl.textContent = fmt(v);
+  });
 }
 
 /* ================= Odds engine ================= */
@@ -1326,7 +1577,9 @@ function tickOdds(){
   // price IS the slip price, period).
   const changedKeys = new Set(slip.filter(s=>s.changed).map(s=>s.matchId+"|"+s.market+"|"+s.sel));
   const frozenKeys = new Set(slip.filter(s=>s.accepted).map(s=>s.matchId+"|"+s.market+"|"+s.sel));
-  const refs = allOddsRefs().filter(r=>!r.suspended && r.opt.odds>1.05 && !changedKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n) && !frozenKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n));
+  // Round 9 (item 9): a half-time match's odds are paused — the tick must
+  // not move them while the break is on.
+  const refs = allOddsRefs().filter(r=>!r.suspended && r.opt.odds>1.05 && !(r.m.sport==="Soccer" && isHT(r.m)) && !changedKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n) && !frozenKeys.has(r.m.id+"|"+r.label+"|"+r.opt.n));
   if(!refs.length) return;
   // Bias toward odds actually on screen so movement is visible within seconds (judges watch
   // the match page), and toward odds in the slip so the "odds changed" state shows up quickly.
@@ -1350,7 +1603,8 @@ function tickOdds(){
     if(!r) r = refs[Math.floor(Math.random()*refs.length)];
     const delta = (Math.random()<0.5?-1:1)*(0.01+Math.random()*0.02);
     const old = r.opt.odds;
-    r.opt.odds = Math.max(1.02, Math.round((old+delta)*100)/100);
+    // Round 9 (item 15g): the drift can never push an odd past the 50.00 cap.
+    r.opt.odds = Math.min(MAX_ODDS, Math.max(1.02, Math.round((old+delta)*100)/100));
     if(r.opt.odds===old) continue;
     markState("moving");
     // Keep the fixture snapshot in sync so a re-render shows the live price too.
@@ -1518,13 +1772,16 @@ function jumpToFT(){
   toast("⏱️ Full time — "+m.home+" v "+m.away+" ended "+m.hs+"–"+m.as+"; open bets settled", "ok");
   render();
 }
-// Round 7 (item 13) — VOID THE FEATURED MATCH (?judge=1 only). The match
-// leaves Live, shows as postponed with no odds, and every open bet on it
-// settles VOID with the full (remaining) stake refunded.
-function voidFeaturedMatch(){
-  const m = MATCHES[0];
+// Round 9 (item 14) — VOID ANY MATCH (?judge=1 only). The old void only
+// worked on the featured match; a judge can now void any live match from
+// its own match page (or via __hb.voidMatch(id)): the match leaves Live,
+// shows as postponed with no odds, and every open bet on it settles VOID
+// with the full (remaining) stake refunded.
+function voidMatch(id){
+  const m = MATCHES.find(x=>x.id===id) || MATCHES[0];
+  if(!m) return;
   if(m._void){ toast("Already voided — "+m.home+" v "+m.away+" was postponed", "err"); return; }
-  if(isFT(m)){ toast("Already full time — a finished match can't be voided", "err"); return; }
+  if(isFT(m) || isFinished(m)){ toast("Already full time — a finished match can't be voided", "err"); return; }
   m._void = true;
   const bets = myBets.open.filter(b=>matchOfBet(b)===m);
   bets.forEach(b=>{
@@ -1536,6 +1793,7 @@ function voidFeaturedMatch(){
   toast("🚫 Match voided — "+m.home+" v "+m.away+" postponed; "+bets.length+" open bet"+(bets.length===1?"":"s")+" refunded in full", "ok");
   render();
 }
+function voidFeaturedMatch(){ voidMatch(MATCHES[0].id); }
 /* Round 8 (item 6) — RESTART THE FEATURED MATCH (?judge=1 only). The void
    test (place bet -> void -> stake returned) needs a FRESH featured match,
    but the FT jump locks to the one featured match and Reset was broken —
@@ -1554,9 +1812,15 @@ function restartFeaturedMatch(){
   delete m._clockBase; delete m._bbBase; delete m._tennisBase;
   delete m._x2; delete m._overlay; delete m._markets;
   delete m._finished; delete m._void; delete m._ft;
-  delete m._lastPeriod; delete m._lastMin; delete m._lastGateMin; delete m._lastTennisSets;
+  delete m._lastPeriod; delete m._lastMin; delete m._lastGateMin; delete m._lastTennisSets; delete m._lastTennisGames;
+  // Round 9 (item 3): the score engine's output resets to the seed too —
+  // generated scorers/corners/cards and judge goals/baskets belong to the
+  // old incarnation.
+  delete m._judgeGoals; delete m._judgeBaskets;
   m.status = s.status || "live";
   m.minute = s.minute; m.hs = s.hs; m.as = s.as;
+  m.scorers = (m._seedScorers || []).slice();
+  m.corners = m._seedCorners || 0; m.cards = m._seedCards || 0;
   if(s.period!==null && s.period!==undefined) m.period = s.period;
   if(s.setScore!==null && s.setScore!==undefined) m.setScore = s.setScore;
   if(s.games) m.games = s.games.slice();
@@ -1572,6 +1836,34 @@ function restartFeaturedMatch(){
   saveLiveState(); saveAll();
   toast("🔄 Featured match restarted — "+m.home+" v "+m.away+" live again from "+s.minute+"′", "ok");
   render();
+}
+/* Round 9 (item 3) — JUDGE TRIGGERS (?judge=1 only). The live score
+   engine produces goals/points on its own, but a judge (or a test) can
+   also force one right now: a goal on a live soccer match, or a basket on
+   a live basketball game. The trigger is stored on the match, so the
+   engine keeps it through reloads and re-renders, and Restart clears it. */
+function judgeGoal(id, team){
+  const m = MATCHES.find(x=>x.id===id); if(!m) return false;
+  if(m.sport!=="Soccer" || m.status!=="live" || isFT(m) || isVoided(m)) return false;
+  if(!m._judgeGoals) m._judgeGoals = [];
+  const min = curMin(m);
+  const sc = (team==="home" ? (SCORERS[m.home]||["Top scorer"]) : (SCORERS[m.away]||["Top scorer"]));
+  const scorer = sc[Math.floor(hash01(m.id+"|jgoal|"+min+"|"+m._judgeGoals.length)*sc.length)] || sc[0];
+  m._judgeGoals.push({min, team, scorer});
+  syncLiveScore(m); m._markets = marketsFor(m); applyScoreOdds(m);
+  saveLiveState(); render();
+  toast("⚽ Goal — "+scorer+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
+  return true;
+}
+function judgeBasket(id, team, pts){
+  const m = MATCHES.find(x=>x.id===id); if(!m) return false;
+  if(m.sport!=="Basketball" || m.status!=="live" || bbOver(m) || isVoided(m)) return false;
+  if(!m._judgeBaskets) m._judgeBaskets = [];
+  m._judgeBaskets.push({home: team==="home", pts: pts||2});
+  syncBbScore(m); m._markets = marketsFor(m);
+  saveLiveState(); render();
+  toast("🏀 Basket — "+(team==="home"?m.home:m.away)+" +"+(pts||2)+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
+  return true;
 }
 function previewBoxHTML(){
   // Round 5: the judge panel is a demo control, not part of the public entry
@@ -1589,6 +1881,10 @@ function previewBoxHTML(){
       <button onclick="jumpToFT()">⏱️ Jump to full time</button>
       <button onclick="voidFeaturedMatch()">🚫 Void featured match</button>
       <button onclick="restartFeaturedMatch()">🔄 Restart featured match</button>
+      <button onclick="judgeGoal('m1','home')">⚽ Goal — Arsenal</button>
+      <button onclick="judgeGoal('m1','away')">⚽ Goal — Brighton</button>
+      <button onclick="judgeBasket('m21','home',2)">🏀 Basket — Lakers +2</button>
+      <button onclick="judgeBasket('m21','away',3)">🏀 Basket — Celtics +3</button>
     </div>
     <div class="states-seen">States seen <b class="st-count">${seenStates.size}/8</b>: ${STATE_LABELS.map(([k,l])=>`<span class="st-chip${seenStates.has(k)?" done":""}" data-state="${k}">${seenStates.has(k)?"✓ ":""}${l}</span>`).join(" ")}</div>
   </div>`;
@@ -1682,6 +1978,17 @@ function refreshClocks(){
     const m = MATCHES.find(x=>x.id===el.dataset.periodMatch); if(!m) return;
     el.textContent = periodLabel(m);
   });
+  // Round 9 (item 15h): the live corner/card counts on the match page
+  // follow the score engine (they are re-rendered on a goal anyway; this
+  // keeps them in step every second without a full render).
+  $$("[data-corners-match]").forEach(el=>{
+    const m = MATCHES.find(x=>x.id===el.dataset.cornersMatch); if(!m) return;
+    el.textContent = m.corners||0;
+  });
+  $$("[data-cards-match]").forEach(el=>{
+    const m = MATCHES.find(x=>x.id===el.dataset.cardsMatch); if(!m) return;
+    el.textContent = m.cards||0;
+  });
 }
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) refreshClocks(); });
 window.addEventListener("focus", refreshClocks);
@@ -1717,6 +2024,12 @@ window.__hb = {
   jumpToFT(){ jumpToFT(); },
   voidFeatured(){ voidFeaturedMatch(); },
   restartFeatured(){ restartFeaturedMatch(); },
+  // Round 9: void any live match; force a goal / a basket; read the
+  // deterministic score-aware 1X2 price (the cash-out model's odds).
+  voidMatch(id){ voidMatch(id); },
+  goal(id, team){ return judgeGoal(id, team); },
+  basket(id, team, pts){ return judgeBasket(id, team, pts); },
+  x2(id){ const m=MATCHES.find(x=>x.id===id); return m?scoreAwareX2(m):null; },
   settleHT(id){ const m=MATCHES.find(x=>x.id===id); return m?settleHTBets(m):null; },
   state(){ return {balance, open: myBets.open, settled: myBets.settled}; },
   settleOutcome(sel, market, id){ const m=MATCHES.find(x=>x.id===id); return m?settleOutcome({sel, market}, m):null; },
@@ -1750,6 +2063,16 @@ function checkTransitions(){
     if(m.status!=="live" || m._void) return;
     if(m.sport==="Soccer"){
       const lm = curMin(m);
+      // Round 9 (item 3): the live score engine runs every second — a goal
+      // landing changes the score, the scorers and the markets. The engine
+      // is a pure function of the seed + the minute, so a reload or a
+      // second tab computes the same score.
+      const scoreChanged = syncLiveScore(m);
+      if(scoreChanged){
+        m._markets = marketsFor(m);
+        applyScoreOdds(m);
+        needRender = true;
+      }
       // Half-time settlement (item 3): once the 1st half is over, settle
       // every decided 1st-half bet. Idempotent — settled bets leave Open.
       if(isFirstHalfOver(m)){
@@ -1773,22 +2096,19 @@ function checkTransitions(){
         // paused odds the moment the break starts, and back when it ends.
         needRender = true;
       }
-      // Minute rollover: reprice the 1X2 off the score + minute (item 7).
+      // Minute rollover: reprice the 1X2 off the score + minute (item 7)
+      // and rebuild the markets — the impossible-market gate depends on the
+      // minute (a total line the match can no longer reach closes) and on
+      // the score, so rebuilding only at 30'/45' crossings is not enough.
       if(m._lastMin===undefined) m._lastMin = lm;
       else if(m._lastMin!==lm){
         m._lastMin = lm;
         applyScoreOdds(m);
+        const before = m._markets ? Object.values(m._markets).flat().map(x=>x.label).join(",") : "";
+        m._markets = marketsFor(m);
+        const after = Object.values(m._markets).flat().map(x=>x.label).join(",");
+        if(before!==after) needRender = true;
       }
-      if(!m._markets) return;
-      const last = m._lastGateMin;
-      m._lastGateMin = lm;
-      if(last===undefined) return;
-      const crossed = (last<=30&&lm>30)||(last<=45&&lm>45);
-      if(!crossed) return;
-      const before = Object.values(m._markets).flat().map(x=>x.label).join(",");
-      m._markets = marketsFor(m);
-      const after = Object.values(m._markets).flat().map(x=>x.label).join(",");
-      if(before!==after && location.hash.startsWith("#/match/"+m.id)) needRender=true;
     } else if(m.sport==="Tennis"){
       const t = tennisNow(m);
       if(t.over && !m._finished){
@@ -1797,19 +2117,36 @@ function checkTransitions(){
         m.hs = sw[0]; m.as = sw[1];
         m.setScore = t.sets.map(s=>s[0]+"-"+s[1]).join(", ");
         m.games = [0,0];
+        // Round 9 (item 1): the moment a tennis match goes FINAL, every
+        // bet on it settles — won/lost by the final sets/games.
+        settleMatchBets(m);
         saveLiveState(); needRender = true;
       }
       // A set finishing changes the finished-set gate — rebuild the markets.
-      const nSets = t.sets.length;
-      if(m._lastTennisSets===undefined) m._lastTennisSets = nSets;
-      else if(m._lastTennisSets!==nSets){
-        m._lastTennisSets = nSets;
+      // Round 9 (item 6): a GAME finishing changes the total-games gate
+      // too (a decided 26.5 line must close mid-set, not at the next set),
+      // so rebuild whenever the games tally changes, not just the sets.
+      const nSets = t.sets.length, nGames = t.totalGames;
+      if(m._lastTennisSets===undefined){ m._lastTennisSets = nSets; m._lastTennisGames = nGames; }
+      else if(m._lastTennisSets!==nSets || m._lastTennisGames!==nGames){
+        m._lastTennisSets = nSets; m._lastTennisGames = nGames;
         m._markets = marketsFor(m);
         if(location.hash.startsWith("#/match/"+m.id)) needRender = true;
       }
     } else if(m.sport==="Basketball"){
+      // Round 9 (item 3): the basketball score engine runs every second —
+      // baskets land as the game clock runs, so the score moves.
+      const scoreChanged = syncBbScore(m);
+      if(scoreChanged){
+        m._markets = marketsFor(m);
+        needRender = true;
+      }
       if(bbOver(m) && !m._finished){
-        m._finished = true; saveLiveState(); needRender = true;
+        m._finished = true;
+        // Round 9 (item 1): the moment a basketball game goes FINAL, every
+        // bet on it settles — won/lost by the final score.
+        settleMatchBets(m);
+        saveLiveState(); needRender = true;
       }
     }
   });
@@ -1869,12 +2206,16 @@ function addToSlip(m, label, sel, odds, suspended){
   syncOddButtons();
 }
 function slipCount(){ return slip.length; }
-function slipTotals(){
+function slipTotals(list){
+  list = list || slip;
   let stake=0, ret=0;
   // A suspended selection can't win: its return is 0 and it adds nothing to
   // the potential return — but its stake stays in the totals (it is still
   // reserved while the market is suspended; it unblocks on resume).
-  slip.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; if(!s.suspended) ret+=st*s.odds; });
+  // Round 9 (item 8): when a list is passed (placing the healthy selections
+  // only), the totals cover that list alone — a suspended selection's stake
+  // never blocks a healthy selection.
+  list.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; if(!s.suspended) ret+=st*s.odds; });
   return {stake, ret};
 }
 function balanceHTML(){
@@ -1967,30 +2308,39 @@ function fmtDateTime(ts){
 function placeBets(){
   if(placing) return;
   if(!slip.length){ showSlipMsg("err","empty","Your slip is empty — tap an odd to add a single."); markState("failed"); return; }
-  const badStake = slip.find(s=>!(parseFloat(s.stake)>0));
+  // Round 9 (item 8): ONE rule for suspended selections — a suspended
+  // selection can never be placed, but it must not block the healthy
+  // selections in the same slip. Split first; every check below runs on
+  // the healthy selections only, and the suspended ones stay in the slip.
+  const healthy = slip.filter(s=>!s.suspended);
+  const susp = slip.filter(s=>s.suspended);
+  const badStake = healthy.find(s=>!(parseFloat(s.stake)>0));
   if(badStake){ showSlipMsg("err","no-stake"); toast("❌ Bet failed — missing stake", "err"); markState("failed"); return; }
   // Round 4: a match that ended (full time) while its selection sat in the
   // slip can't be placed — the bet is dead, say so plainly.
   const ended = slip.find(s=>{ const mm=MATCHES.find(x=>x.id===s.matchId); return mm && isFT(mm); });
   if(ended){ showSlipMsg("err","ended"); toast("❌ Bet failed — that match has ended", "err"); markState("failed"); return; }
-  const susp = slip.find(s=>s.suspended);
-  if(susp){ showSlipMsg("err","suspended"); toast("❌ Bet failed — selection suspended", "err"); markState("failed"); return; }
-  const chg = slip.find(s=>s.changed);
+  if(!healthy.length){ showSlipMsg("err","suspended"); toast("❌ Bet failed — selection suspended", "err"); markState("failed"); return; }
+  const chg = healthy.find(s=>s.changed);
   if(chg){ showSlipMsg("err","odds-changed"); toast("⚠️ Odds changed — accept first", "err"); markState("failed"); return; }
-  const tt=slipTotals();
+  const tt=slipTotals(healthy);
   if(tt.stake > balance){ showSlipMsg("err","insufficient","Bet failed — insufficient balance. Your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("❌ Bet failed — insufficient balance", "err"); markState("failed"); return; }
   if(failNextBet){ failNextBet=false; showSlipMsg("err","failed","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); markState("failed"); renderSlip(); return; }
   placing=true; renderSlip();
   setTimeout(()=>{
     placing=false;
-    slip.forEach(s=>{
-      myBets.open.unshift({id:"b"+Date.now()+Math.floor(Math.random()*999), sel:s.sel, market:s.market, match:s.match, comp:s.comp, odds:s.odds, stake:parseFloat(s.stake), placed:fmtDateTime(Date.now()), cashout: Math.round(parseFloat(s.stake)*s.odds*0.82*100)/100, live:true});
+    healthy.forEach(s=>{
+      const nb = {id:"b"+Date.now()+Math.floor(Math.random()*999), sel:s.sel, market:s.market, match:s.match, comp:s.comp, odds:s.odds, stake:parseFloat(s.stake), placed:fmtDateTime(Date.now()), cashout:0, live:true};
+      // Round 9 (item 2): the stored cash-out is the live fair value at
+      // place time — never the old stake × odds × 0.82, which froze.
+      nb.cashout = liveCashout(nb);
+      myBets.open.unshift(nb);
     });
-    const n=slip.length, t=slipTotals();
-    balance = Math.round((balance - t.stake)*100)/100; // deduct the placed stake; persists via saveAll
-    slip=[]; saveAll(); syncOddButtons();
+    const n=healthy.length;
+    balance = Math.round((balance - tt.stake)*100)/100; // deduct the placed stake; persists via saveAll
+    slip = susp; saveAll(); syncOddButtons();
     markState("placed");
-    showSlipMsg("ok","placed","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(t.stake)+" USDT, potential return "+fmt(t.ret)+" USDT. See it in My bets → Open.");
+    showSlipMsg("ok","placed","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(tt.stake)+" USDT, potential return "+fmt(tt.ret)+" USDT. See it in My bets → Open."+(susp.length?" "+susp.length+" suspended selection"+(susp.length>1?"s":"")+" stayed in your slip.":""));
     // Round 7 (item 11): the "Bet placed!" banner auto-dismisses after ~5s
     // (and has an X to close it sooner — see renderSlipMsgNodes).
     setTimeout(()=>{ if(slipMsg && slipMsg.key==="placed"){ slipMsg=null; renderSlipMsgNodes(); } }, 5000);
@@ -2015,7 +2365,77 @@ function teamOfPlayer(p){
   for(const [t, list] of Object.entries(SCORERS)) if(list.includes(p)) return t;
   return PLAYER_TEAM[p] || null;
 }
+/* Round 9 (item 1) — tennis settlement, from the FINAL sets/games. The
+   match ends when a player wins 2 sets; the final total is the sum of
+   every set's games. */
+function settleTennisOutcome(b, m){
+  const sel = String(b.sel||"").replace(/ to win$/,"");
+  const t = tennisNow(m);
+  const sw = [t.sets.filter(s=>s[0]>s[1]).length, t.sets.filter(s=>s[1]>s[0]).length];
+  if(sw[0]<2 && sw[1]<2) return null; // not finished — cannot settle yet
+  const fin = sw[0]>=2 ? "H" : "A";
+  const totalGames = t.sets.reduce((s,x)=>s+x[0]+x[1],0);
+  const numIn = s => { const mm = String(s).match(/(\d+(?:\.\d+)?)/); return mm?parseFloat(mm[1]):null; };
+  switch(b.market){
+    case "Match winner": return sel===m.home ? (fin==="H"?"won":"lost") : sel===m.away ? (fin==="A"?"won":"lost") : null;
+    case "Set 1 winner": {
+      if(!t.sets[0]) return null;
+      const w = t.sets[0][0]>t.sets[0][1] ? "H" : "A";
+      return sel===m.home ? (w==="H"?"won":"lost") : sel===m.away ? (w==="A"?"won":"lost") : null;
+    }
+    case "Set 2 winner": {
+      if(!t.sets[1]) return null;
+      const w = t.sets[1][0]>t.sets[1][1] ? "H" : "A";
+      return sel===m.home ? (w==="H"?"won":"lost") : sel===m.away ? (w==="A"?"won":"lost") : null;
+    }
+    case "Set betting": {
+      // The selection is the exact sets score, e.g. "2-1".
+      const p = sel.split("-");
+      return (+p[0]===sw[0] && +p[1]===sw[1]) ? "won" : "lost";
+    }
+    default: break;
+  }
+  // Total-games lines ("Total games 26.5", or the line in the selection).
+  if(/^Total games/.test(b.market)){
+    const line = numIn(b.market) !== null ? numIn(b.market) : numIn(sel);
+    if(line===null) return null;
+    return sel.startsWith("Over") ? (totalGames>line?"won":"lost") : sel.startsWith("Under") ? (totalGames<line?"won":"lost") : null;
+  }
+  return null;
+}
+/* Round 9 (item 1) — basketball settlement, from the FINAL score. The
+   spread selection carries its own line ("Lakers −5.5" / "Celtics +5.5"):
+   the adjusted margin decides it, exactly like an Asian handicap. */
+function settleBbOutcome(b, m){
+  const sel = String(b.sel||"").replace(/ to win$/,"");
+  const hs = m.hs||0, as = m.as||0, total = hs+as;
+  const numIn = s => { const mm = String(s).match(/(\d+(?:\.\d+)?)/); return mm?parseFloat(mm[1]):null; };
+  switch(b.market){
+    case "Match winner": return sel===m.home ? (hs>as?"won":"lost") : sel===m.away ? (as>hs?"won":"lost") : null;
+    case "Point spread": {
+      const mm = sel.match(/([−+\-])\s*(\d+(?:\.\d+)?)/);
+      if(!mm) return null;
+      const line = parseFloat(mm[2]) * (mm[1]==="+" ? 1 : -1);
+      const adj = sel.startsWith(m.home) ? (hs+line)-as : sel.startsWith(m.away) ? (as+line)-hs : null;
+      if(adj===null) return null;
+      return adj>0 ? "won" : "lost";
+    }
+    default: break;
+  }
+  if(/^Total points/.test(b.market)){
+    const line = numIn(b.market) !== null ? numIn(b.market) : numIn(sel);
+    if(line===null) return null;
+    return sel.startsWith("Over") ? (total>line?"won":"lost") : sel.startsWith("Under") ? (total<line?"won":"lost") : null;
+  }
+  return null;
+}
 function settleOutcome(b, m){
+  // Round 9 (item 1): tennis and basketball bets settle from their own
+  // final state, exactly like soccer bets. (Before Round 9, settleMatchBets
+  // refused non-soccer matches, so a Ferreira or Lakers bet stayed OPEN
+  // for ever after the match went FINAL.)
+  if(m.sport==="Tennis") return settleTennisOutcome(b, m);
+  if(m.sport==="Basketball") return settleBbOutcome(b, m);
   const hs = m.hs||0, as = m.as||0, goals = hs+as;
   const scorers = (m.scorers||[]).slice().sort((a,c)=>a.min-c.min);
   const scored = new Set(scorers.map(s=>s.p));
@@ -2184,7 +2604,10 @@ function settleHTBets(m){
   return bets.length;
 }
 function settleMatchBets(m){
-  if(!m || m.sport!=="Soccer") return 0;
+  // Round 9 (item 1): every sport settles. The old soccer-only guard is
+  // why tennis and basketball bets never settled — the match went FINAL
+  // and the bets stayed OPEN for ever.
+  if(!m) return 0;
   const bets = myBets.open.filter(b=>matchOfBet(b)===m);
   if(!bets.length) return 0;
   bets.forEach(b=>{
@@ -2202,15 +2625,200 @@ function settleMatchBets(m){
   saveAll();
   return bets.length;
 }
-/* Round 7 (item 12) — LIVE CASH OUT. The cash-out value is not frozen at
-   place time: it is the live price of the selection × the remaining stake ×
-   the 0.82 book margin, so it moves as the odds move. And cash out is
-   blocked while its market is suspended (placing is blocked there too) —
-   the button is disabled and says why. */
+/* Round 9 (item 2) — THE CASH-OUT MODEL. The old formula paid
+   stake × current odds × 0.82, which pays LESS the more likely the bet is
+   to win: as the odds shorten toward 1.00 the cash-out falls toward 82%
+   of the stake — exactly backwards (the audit caught it: a Draw at 1.10
+   in the 88' cashed out at 9.02 on a 10 stake that was nearly certain to
+   return 24.60). The correct value is the bet's fair value right now:
+   cash-out = min(potential, stake × placed odds / current odds), where
+   "current odds" is the DETERMINISTIC live price of the selection (the
+   score-aware model for 1X2, the Poisson model for goals/total lines,
+   the same models that price the displayed odds) — never the per-tab
+   drifted price, so every tab shows the same value, and never the
+   placed odds, so the value is never frozen. When the odds shorten the
+   win probability rises and the cash-out RISES toward the full
+   potential; when they drift out it falls. A selection whose outcome is
+   already decided cashes out at its full potential (won) or at 0
+   (lost). */
+function normSel(b){
+  let s = String(b.sel || "").trim();
+  // The seeded bets carry the long forms ("Arsenal to win",
+  // "Over 2.5 goals", "ARS No. 9 anytime scorer"); the market options
+  // carry the short forms. Strip the suffixes the same way settleOutcome
+  // already does, so a seeded bet matches its market option.
+  s = s.replace(/\s+to win$/i, "").replace(/\s+goals$/i, "").replace(/\s+anytime scorer$/i, "");
+  return s;
+}
+function liveDecided(b, m){
+  // "won" | "lost" | null — the bet's outcome is already certain, from the
+  // current state (not from the final score: a bet can be decided mid-match).
+  if(!m) return null;
+  const sel = normSel(b), mk = b.market;
+  if(m.sport==="Soccer" && isLiveNow(m)){
+    const min = curMin(m), hs = m.hs||0, as = m.as||0, goals = hs+as;
+    const maxAdd = Math.ceil(Math.max(0, 90-min)/4);
+    if(mk==="Match result"){
+      if(sel===m.home){ if(hs > as+maxAdd) return "won"; if(as > hs+maxAdd) return "lost"; }
+      else if(sel===m.away){ if(as > hs+maxAdd) return "won"; if(hs > as+maxAdd) return "lost"; }
+      else if(sel==="Draw"){ if(Math.abs(hs-as) > maxAdd) return "lost"; }
+    }
+    if(mk==="Total goals"){
+      const mm = sel.match(/(Over|Under) (\d+(?:\.\d+)?)/);
+      if(mm){
+        const line = parseFloat(mm[2]);
+        if(mm[1]==="Over"){ if(goals>line) return "won"; if(goals+maxAdd<line) return "lost"; }
+        else { if(goals>line) return "lost"; if(goals+maxAdd<line) return "won"; }
+      }
+    }
+    if(mk==="Both teams to score"){
+      if(sel==="Yes" && hs>0 && as>0) return "won";
+    }
+  }
+  if(m.sport==="Tennis" && m.status==="live"){
+    const sw = tennisSetsWon(m);
+    if(mk==="Match winner"){
+      if(sw[0] >= 2 && sel===m.home) return "won";
+      if(sw[1] >= 2 && sel===m.away) return "won";
+      if(sw[0] >= 2 || sw[1] >= 2) return "lost";
+    }
+  }
+  if(m.sport==="Basketball" && m.status==="live"){
+    const bb = bbNow(m);
+    const total = (m.hs||0) + (m.as||0);
+    const remSec = bb.over ? 0 : (4-bb.q)*BB_QSEC + bb.sec;
+    const maxAdd = Math.ceil(remSec/60*6);
+    if(mk==="Match winner"){
+      if(m.hs > m.as+maxAdd && sel===m.home) return "won";
+      if(m.as > m.hs+maxAdd && sel===m.away) return "won";
+      if(m.hs > m.as+maxAdd && sel===m.away) return "lost";
+      if(m.as > m.hs+maxAdd && sel===m.home) return "lost";
+    }
+    if(mk==="Total points 224.5" || mk==="Total points 214.5" || mk==="Total points 234.5"){
+      const mm = sel.match(/(Over|Under) (\d+(?:\.\d+)?)/);
+      if(mm){
+        const line = parseFloat(mm[2]);
+        if(mm[1]==="Over"){ if(total>line) return "won"; if(total+maxAdd<line) return "lost"; }
+        else { if(total>line) return "lost"; if(total+maxAdd<line) return "won"; }
+      }
+    }
+  }
+  return null;
+}
+function liveProb(b, m){
+  // The probability (0..1) that the bet wins, from the current state.
+  if(!m) return 0;
+  const sel = normSel(b), mk = b.market;
+  if(m.sport==="Soccer" && isLiveNow(m)){
+    if(mk==="Match result"){
+      const pr = scoreAwareProbs(m);
+      if(sel===m.home) return pr.h;
+      if(sel===m.away) return pr.a;
+      return pr.d;
+    }
+    if(mk==="Total goals" || mk==="Both teams to score" || mk==="BTTS & total goals 2.5" || mk==="Draw no bet" || mk==="Double chance"){
+      // Goals markets: a Poisson model on the goals still to come, from the
+      // current score and minute (the same model that prices the live odds).
+      const rem = Math.max(0, 90 - curMin(m)) / 90;
+      const lamH = 1.35*rem, lamA = 1.15*rem, hs = m.hs||0, as = m.as||0;
+      let p = 0;
+      for(let i=0;i<=6;i++) for(let j=0;j<=6;j++){
+        const prob = poissonP(i, lamH) * poissonP(j, lamA);
+        const fh = hs+i, fa = as+j;
+        if(mk==="Total goals"){
+          const mm = sel.match(/(Over|Under) (\d+(?:\.\d+)?)/);
+          if(!mm) return 0;
+          const line = parseFloat(mm[2]);
+          if((mm[1]==="Over" && fh+fa>line) || (mm[1]==="Under" && fh+fa<line)) p += prob;
+        } else if(mk==="Both teams to score"){
+          if(sel==="Yes" && fh>0 && fa>0) p += prob;
+          if(sel==="No" && (fh===0 || fa===0)) p += prob;
+        } else if(mk==="BTTS & total goals 2.5"){
+          const both = fh>0 && fa>0, over = fh+fa>2.5;
+          if(sel==="Yes & Over 2.5" && both && over) p += prob;
+          if(sel==="Yes & Under 2.5" && both && !over) p += prob;
+        } else if(mk==="Draw no bet"){
+          if(sel===m.home && fh>fa) p += prob;
+          if(sel===m.away && fa>fh) p += prob;
+        } else if(mk==="Double chance"){
+          const hWin = fh>fa, dWin = fh===fa, aWin = fa>fh;
+          if((sel.includes(m.home) && sel.includes("Draw")) && (hWin || dWin)) p += prob;
+          if((sel.includes(m.away) && sel.includes("Draw")) && (aWin || dWin)) p += prob;
+          if(sel.includes(m.home) && sel.includes(m.away) && (hWin || aWin)) p += prob;
+        }
+      }
+      return p;
+    }
+  }
+  if(m.sport==="Tennis" && m.status==="live"){
+    if(mk==="Match winner"){
+      const sw = tennisSetsWon(m);
+      const g = m.games || [0,0];
+      let p = 0.5;
+      if(sw[0]===1 && sw[1]===1) p = sel===m.home ? 0.5 + (g[0]-g[1])*0.06 : 0.5 - (g[0]-g[1])*0.06;
+      else if(sw[0]===1) p = sel===m.home ? 0.72 : 0.28;
+      else if(sw[1]===1) p = sel===m.home ? 0.28 : 0.72;
+      return Math.min(0.99, Math.max(0.01, p));
+    }
+  }
+  if(m.sport==="Basketball" && m.status==="live"){
+    if(mk==="Match winner"){
+      const bb = bbNow(m);
+      const remMin = bb.over ? 0 : ((4-bb.q)*BB_QSEC + bb.sec)/60;
+      const diff = (m.hs||0) - (m.as||0);
+      const homeP = 1 / (1 + Math.exp(-(diff*0.14 + (remMin>0 ? 0.15 : 0))));
+      return sel===m.home ? homeP : 1-homeP;
+    }
+  }
+  return 0;
+}
+function findBetOdds(b, m){
+  // The DETERMINISTIC current price of the bet's selection (no per-tab
+  // drift): the score-aware 1X2 price for a soccer Match result bet, the
+  // clean (no-overlay) market list for everything else. Returns 0 when
+  // the selection is no longer offered.
+  if(!m) return 0;
+  if(m.sport==="Soccer" && b.market==="Match result"){
+    const x2 = scoreAwareX2(m);
+    const sel = normSel(b);
+    if(sel===m.home) return x2.h;
+    if(sel===m.away) return x2.a;
+    return x2.d;
+  }
+  const groups = marketsFor(m, {noOverlay:true});
+  for(const list of Object.values(groups)) for(const mk of list){
+    if(mk.label !== b.market) continue;
+    const op = mk.opts.find(o => o.n === normSel(b) || o.n === b.sel);
+    if(op) return op.odds;
+  }
+  return 0;
+}
 function liveCashout(b){
   const m = matchOfBet(b);
-  const odds = m ? currentOdds(m, b.market, b.sel, b.odds) : b.odds;
-  return Math.round(b.stake * odds * 0.82 * 100)/100;
+  // Round 9 (item 4): cash out is only for a match that is live RIGHT NOW.
+  // A bet on a match that has not kicked off has no cash-out value at all —
+  // the old code paid stake × odds × 0.82 on any bet, so a pre-match bet
+  // showed a cash-out 90 minutes before kickoff.
+  if(!m || !isLiveNow(m)) return 0;
+  if(isSuspended(m, b.market)) return 0;
+  const potential = b.stake * b.odds;
+  const decided = liveDecided(b, m);
+  if(decided==="won") return Math.round(potential*100)/100;
+  if(decided==="lost") return 0;
+  // Fair value: the chance of winning, times the potential, capped at the
+  // potential. Written as stake × placed odds / current odds so it tracks
+  // the displayed odds exactly — when the current odds shorten, the value
+  // RISES. (liveProb is the same model that prices the odds, so the two
+  // routes agree; the odds route is the one the user can check against the
+  // match page.)
+  const cur = findBetOdds(b, m);
+  if(cur && cur > 0){
+    const v = b.stake * b.odds / cur;
+    return Math.round(Math.min(potential, Math.max(0, v))*100)/100;
+  }
+  const p = liveProb(b, m);
+  if(!p) return 0;
+  return Math.round(Math.min(potential, Math.max(0, b.stake * b.odds * p))*100)/100;
 }
 function cashOutSuspended(b){
   const m = matchOfBet(b);
@@ -2223,6 +2831,9 @@ function cashOut(id){
   // a defensive guard only.)
   const mmFT=matchOfBet(b);
   if(mmFT && isFT(mmFT)){ toast("Full time — this bet has already settled", "err"); return; }
+  // Round 9 (item 4): cash out is only for a match that is live right now.
+  // A pre-match bet has no cash-out value — refuse rather than paying 0.
+  if(mmFT && !isLiveNow(mmFT)){ toast("Cash out opens at kickoff — this match hasn't started yet", "err"); return; }
   if(cashOutSuspended(b)){ toast("⛔ Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
   const val = liveCashout(b);
   myBets.open=myBets.open.filter(x=>x.id!==id);
@@ -2244,6 +2855,8 @@ function cashOutPartial(id, pct){
   const b=myBets.open.find(x=>x.id===id); if(!b) return;
   const mmFT=matchOfBet(b);
   if(mmFT && isFT(mmFT)){ toast("Full time — this bet has already settled", "err"); return; }
+  // Round 9 (item 4): no partial cash out before kickoff either.
+  if(mmFT && !isLiveNow(mmFT)){ toast("Cash out opens at kickoff — this match hasn't started yet", "err"); return; }
   if(cashOutSuspended(b)){ toast("⛔ Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
   if(pct>=100){ cashOut(id); return; }
   const live = liveCashout(b);
@@ -2251,7 +2864,9 @@ function cashOutPartial(id, pct){
   const remStake = Math.round(b.stake * (100-pct)/100 * 100)/100;
   b.partCashed = Math.round(((b.partCashed||0) + paid)*100)/100;
   b.stake = remStake;
-  b.cashout = Math.round(remStake * b.odds * 0.82 * 100)/100; // same 0.82 factor as at place time
+  // Round 9 (item 2): the remaining bet's cash-out is the live fair value
+  // of the remaining stake — not the old stake × odds × 0.82.
+  b.cashout = liveCashout(b);
   balance = Math.round((balance + paid)*100)/100;
   saveAll(); markState("cashed"); renderSlip(); renderPanel();
   toast("💰 Cashed out "+fmt(paid)+" USDT ("+pct+"%) — "+fmt(remStake)+" USDT still open at "+fmt(b.odds)+".", "ok");
@@ -2261,6 +2876,13 @@ function cashOutPartial(id, pct){
 // bets: full Cash out + 25/50/75% partial buttons + the part-cashed note.
 function cashOutRowHTML(b){
   const susp = cashOutSuspended(b);
+  const m = matchOfBet(b);
+  // Round 9 (item 4): a match that has not kicked off has no cash out —
+  // no button, no partial buttons, just the note. (The old build showed
+  // "Cash out 15.42 USDT" on a bet 90 minutes before kickoff.)
+  if(m && !isLiveNow(m) && !isFinished(m)){
+    return `<div class="foot"><span class="small muted">Cash out opens at kickoff</span></div>`;
+  }
   const val = liveCashout(b);
   return `<div class="foot"><span class="co-val">Cash out <b data-co-bet="${b.id}">${fmt(val)} USDT</b></span><button class="cobtn" ${susp?"disabled style='opacity:.45;cursor:not-allowed'":""} onclick="cashOut('${b.id}')">Cash out</button></div>
   ${susp?`<div class="small" style="color:var(--red);font-weight:700;margin-top:6px">⛔ Cash out paused — “${esc(b.market)}” is suspended on this match.</div>`:""}
@@ -2269,12 +2891,18 @@ function cashOutRowHTML(b){
 }
 // Round 7 (item 12): refresh the displayed cash-out values in place as the
 // live odds move — the value on screen is never the frozen place-time price.
+// Round 9 (item 2): the stored b.cashout is refreshed too, so the value a
+// cash-out pays and the value the bet carries always agree.
 function refreshCashoutDisplays(){
   $$("[data-co-bet]").forEach(el=>{
     const b = myBets.open.find(x=>x.id===el.dataset.coBet);
     if(!b) return;
     el.textContent = fmt(liveCashout(b))+" USDT";
   });
+  for(const b of myBets.open){
+    const v = liveCashout(b);
+    if(v > 0) b.cashout = v;
+  }
 }
 function showSlipMsg(kind, key, msg){
   slipMsg = {kind, key, msg: msg || ""};
@@ -2336,11 +2964,36 @@ function renderSlipMsgNodes(){
    the visibilitychange save and the beforeunload save — so nothing can
    re-persist the old demo between the key removal and the reload. */
 function resetDemo(){
+  // Round 9 (item 12): a reset restores EVERYTHING — balance, bets,
+  // follows AND the match state/clocks. The marker goes up FIRST so no
+  // tab (this one or another) can re-save the old state while the keys
+  // are being removed; the in-memory state is restored to the seed before
+  // the reload, so even a skipped reload leaves the seed in place.
   resetting = true;
+  try{ localStorage.setItem("hb-proto-reset", "1"); }catch(e){}
   try{ ["follows","mybets","balance","live"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
   try{ if(hbChannel) hbChannel.postMessage({t:"reset", at:Date.now()}); }catch(e){}
-  follows = {comps:["Premier League"], teams:["Arsenal"]};
+  follows = JSON.parse(JSON.stringify(SEED_FOLLOWS));
+  myBets = JSON.parse(JSON.stringify(SEED_MYBETS));
   balance = 1250;
+  slip = []; slipMsg = null;
+  MATCHES.forEach(m=>{
+    const s = m._seed || {};
+    delete m._clockBase; delete m._bbBase; delete m._tennisBase;
+    delete m._x2; delete m._overlay; delete m._markets;
+    delete m._finished; delete m._void; delete m._ft;
+    delete m._lastPeriod; delete m._lastMin; delete m._lastGateMin; delete m._lastTennisSets; delete m._lastTennisGames;
+    delete m._judgeGoals; delete m._judgeBaskets;
+    m.status = s.status || m.status;
+    m.minute = s.minute || 0; m.hs = s.hs; m.as = s.as;
+    if(s.period!==null && s.period!==undefined) m.period = s.period;
+    if(s.setScore!==null && s.setScore!==undefined) m.setScore = s.setScore;
+    if(s.games) m.games = s.games.slice();
+    m.scorers = (m._seedScorers || []).slice();
+    m.corners = m._seedCorners || 0; m.cards = m._seedCards || 0;
+  });
+  [...suspendedMarkets].forEach(k=>unsuspendMarket(k));
+  varActive = false;
   location.reload();
 }
 
@@ -2402,20 +3055,35 @@ function betSuspNoteHTML(b){
   if(!m || !isSuspended(m, b.market)) return "";
   return `<div class="susp-note">⛔ Market suspended: ${esc(b.market)} — “${esc(b.sel)}”</div>`;
 }
+function betStatusLabel(b){
+  // Round 9 (item 1): the bet card's status follows the MATCH's status —
+  // the old code stamped a stored "Live" badge on every placed bet, so a
+  // bet on a match that went FINAL still read "LIVE" 46 minutes later.
+  const m = matchOfBet(b);
+  if(!m) return b.live ? " · <span class='live-badge'>Live</span>" : "";
+  if(isVoided(m)) return " · Postponed";
+  if(isFT(m)) return " · Full time";
+  if(isFinished(m)) return " · Final";
+  if(isLiveNow(m)) return " · <span class='live-badge'>Live</span>";
+  const ko = kickoffInfo(m);
+  return ko.past ? " · Started" : " · "+esc(ko.label);
+}
 function myBetsHTML(tab){
   const list = tab==="open" ? myBets.open : myBets.settled;
   if(!list.length) return `<div class="slip-empty"><div class="big">📭</div>No ${tab==="open"?"open":"settled"} bets yet.</div>`;
   return list.map(b=>{
     const st = b.result==="won"?["st-won","Won"]:b.result==="lost"?["st-lost","Lost"]:b.result==="cashed"?["st-cashed","Cashed out"]:b.result==="void"?["st-void","Void"]:["st-open","Open"];
     const retLabel = b.result==="lost"?"Lost":b.result==="won"?"Return":b.result==="cashed"?"Cashed out":b.result==="void"?"Refunded":"Potential";
-    const retVal = b.result==="lost"?"0.00":fmt(b.result?b.ret:b.stake*b.odds);
+    // Round 9 (item 15d): a lost bet shows the STAKE lost ("Lost 5.00
+    // USDT"), not "Lost 0.00 USDT" — the 0.00 was the return, not the loss.
+    const retVal = b.result==="lost"?fmt(b.stake):fmt(b.result?b.ret:b.stake*b.odds);
     return `<div class="card bet">
       <div class="top"><div style="min-width:0"><div class="sel">${esc(b.sel)}</div><div class="mk">${esc(b.match)} · ${esc(b.market)} · ${esc(b.comp)}</div></div><span class="st ${st[0]}">${st[1]}</span></div>
       <div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span><span>${retLabel} <b>${retVal} USDT</b></span></div>
       ${tab==="open"?betSuspNoteHTML(b):""}
       ${tab==="settled" && b.partCashed?`<div class="small" style="color:var(--muted);margin-top:6px">Part-cashed earlier: ${fmt(b.partCashed)} USDT — total received ${fmt(b.partCashed + b.ret)} USDT</div>`:""}
       ${tab==="open"?cashOutRowHTML(b):""}
-      <div class="placed">Placed ${esc(b.placed)}${b.live?" · <span class='live-badge'>Live</span>":""}</div>
+      <div class="placed">Placed ${esc(b.placed)}${betStatusLabel(b)}</div>
     </div>`;
   }).join("");
 }
@@ -2461,7 +3129,9 @@ function renderPanel(){
   p.innerHTML = `<div class="slip-head"><h2>Bet slip<span class="count">${slipCount()}</span></h2>${slip.length?`<button class="clearbtn" onclick="clearSlip()">Clear all</button>`:""}</div>
   ${slipHTML()}
   <div class="sec-head"><h2>My bets</h2><a href="#/bets">View all ›</a></div>
-  ${myBets.open.slice(0,2).map(b=>`<div class="card bet"><div class="top"><div style="min-width:0"><div class="sel">${esc(b.sel)}</div><div class="mk">${esc(b.match)}</div></div><span class="st st-open">Open</span></div><div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span></div>${betSuspNoteHTML(b)}${cashOutRowHTML(b)}</div>`).join("") || '<div class="muted small">No open bets.</div>'}
+  // Round 9 (item 15e): the sidebar shows the 5 latest open bets, not
+  // just 2 — the user had 10 bets and could only see 2 of them.
+  ${myBets.open.slice(0,5).map(b=>`<div class="card bet"><div class="top"><div style="min-width:0"><div class="sel">${esc(b.sel)}</div><div class="mk">${esc(b.match)}</div></div><span class="st st-open">Open</span></div><div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span></div>${betSuspNoteHTML(b)}${cashOutRowHTML(b)}</div>`).join("") || '<div class="muted small">No open bets.</div>'}
   <div class="footer-note">Demo prototype for the Housebets design contest. Sample fixtures and odds only — no real players, no real money, no wallet.</div>`;
 }
 function sheetHTML(){
@@ -2536,7 +3206,38 @@ function kickoffInfo(m){
   if(month===undefined) return {past:false, label:m.time};
   // The demo fixtures are dated Nov 2026; kickoffs are WIB (+07:00).
   const dt = new Date(Date.UTC(2026, month, +dm[2], +tm[1]-7, +tm[2]));
-  return {past: dt.getTime() < Date.now(), label: m.time+" WIB"};
+  // Round 9 (item 15b): a past kickoff says WHEN it started, in WIB —
+  // the old code rendered a bare "Started" with no time at all.
+  return {past: dt.getTime() < Date.now(), label: m.time+" WIB", ts: dt.getTime(), startedLabel: "Started · "+m.time+" WIB"};
+}
+/* Round 9 (item 10) — a match whose kickoff has passed but which the demo
+   still lists as "upcoming" (it never went live in the seeded data) is a
+   STARTED match: it must show a running clock + score like any live match
+   (so minute 1 and minute 80 can be told apart) and must not sell
+   minute-dependent markets. It stays status "upcoming" — it is not a live
+   match in the system (no settlement, no cash out, no Live-list row) — so
+   the live counts and the "Started" label the earlier rounds verified do
+   not change. The clock/score are pure functions of the kickoff time, so
+   every tab and reload agrees. */
+function isStarted(m){
+  if(!m || m.status !== "upcoming" || m._void) return false;
+  const ko = kickoffInfo(m);
+  return ko.past;
+}
+function startedInfo(m){
+  // {min, period, hs, as, scorers, ft} — the match as it stands right now.
+  const ko = kickoffInfo(m);
+  const el = Math.max(0, Math.floor((Date.now() - (ko.ts || Date.now())) / 60000));
+  let min, period;
+  if(el <= 45){ min = el; period = "1h"; }
+  else if(el <= 60){ min = 45; period = "ht"; }
+  else if(el <= 105){ min = el - 15; period = "2h"; }
+  else { min = 90; period = "ft"; }
+  const evts = goalEvents(m).filter(e => e.min <= min);
+  const hs = evts.filter(e => e.team === "home").length;
+  const as = evts.filter(e => e.team === "away").length;
+  const scorers = evts.map(e => ({p: e.scorer, min: e.min, half: e.min <= 45 ? 1 : 2}));
+  return {min, period, hs, as, scorers, ft: period === "ft"};
 }
 function matchRow(m, showMore, mode){
   const ft = isFT(m);
@@ -2556,14 +3257,19 @@ function matchRow(m, showMore, mode){
     : ht ? `<span class="live-badge" style="background:var(--amber);color:#241a02">Half time</span><div class="clock" data-clock-min-match="${m.id}">45′</div>`
     : `<span class="live-badge">Live</span><div class="clock" data-clock-min-match="${m.id}">${curMin(m)}′</div>`;
   const ko = kickoffInfo(m);
+  // Round 9 (item 10/15b): a started match shows its derived clock + score
+  // and WHEN it started (WIB) — the old row said a bare "Started" with no
+  // time, no minute and no score, so minute 1 and minute 80 looked alike.
+  const started = isStarted(m);
+  const st = started ? startedInfo(m) : null;
   const when = voided ? `<span class="live-badge" style="background:var(--muted2)">Postponed</span>`
     : ft ? `<span class="live-badge" style="background:var(--muted2)">FT</span>`
     : fin ? `<span class="live-badge" style="background:var(--muted2)">Final</span>`
     : live ? liveWhen
-    : ko.past ? `<b>Started</b>${m.date}`
+    : started ? (m.sport==="Soccer" ? `<b>Started · ${st.min}′</b><span class="small muted"> · ${esc(m.time)} WIB</span>${m.date}` : `<b>${esc(ko.startedLabel||"Started")}</b>${m.date}`)
     : `<b>${ko.label}</b>${m.date}`;
-  const score = (live || ft || fin) ? `<span class="sc">${m.hs}</span>` : "";
-  const score2 = (live || ft || fin) ? `<span class="sc">${m.as}</span>` : "";
+  const score = (live || ft || fin) ? `<span class="sc">${m.hs}</span>` : (started && m.sport==="Soccer") ? `<span class="sc">${st.hs}</span>` : "";
+  const score2 = (live || ft || fin) ? `<span class="sc">${m.as}</span>` : (started && m.sport==="Soccer") ? `<span class="sc">${st.as}</span>` : "";
   // Truthful "+N": the number of OTHER markets on this match's page (total
   // markets minus the one already shown as the row's odds) — not a made-up number.
   if(!m._markets) m._markets=marketsFor(m);
@@ -2599,7 +3305,7 @@ function featCard(m){
   const clockHtml = voided ? `<span><span class="live-badge" style="background:var(--muted2)">Postponed</span></span>`
     : ft ? `<span><span class="live-badge" style="background:var(--muted2)">Full time</span></span>`
     : fin ? `<span><span class="live-badge" style="background:var(--muted2)">Final</span></span>`
-    : !live ? `<span>${esc(m.date)} · ${ko.past?"Started":ko.label}</span>`
+    : !live ? `<span>${esc(m.date)} · ${ko.past?esc(ko.startedLabel||"Started"):ko.label}</span>`
     : m.sport==="Tennis" ? `<span><span class="live-badge">Live</span> <span class="clock"><span data-tsets="${m.id}">Set ${tennisNow(m).sets.length+1}</span> · <span data-tgames="${m.id}">${tennisNow(m).games[0]}–${tennisNow(m).games[1]}</span></span></span>`
     : m.sport==="Basketball" ? `<span><span class="live-badge">Live</span> <span class="clock"><span data-bb-clock="${m.id}">${bbLabel(m)}</span></span></span>`
     : ht ? `<span><span class="live-badge" style="background:var(--amber);color:#241a02">Half time</span> <span class="clock" data-clock-min-match="${m.id}">45′</span></span>`
@@ -2668,14 +3374,24 @@ function searchResultsHTML(q){
   // covers all of them, and "BTTS" is an alias for "Both teams to score".
   // Round 3 (item 17): index the option names too ("Over 2.5", "Yes") — a
   // search for a market LINE must find it, not just the market name.
-  const MARKET_ALIAS = {"Both teams to score":["btts"], "BTTS & total goals 2.5":["btts"], "Match result":["1x2"], "Total goals 2.5":["ou 2.5", "o/u 2.5"]};
+  const MARKET_ALIAS = {"Both teams to score":["btts"], "BTTS & total goals 2.5":["btts"], "Both teams to score in 2nd half":["btts"], "2nd half — both teams to score":["btts"], "Match result":["1x2"], "Total goals 2.5":["ou 2.5", "o/u 2.5"]};
   const mkIndex=[];
+  // Round 9 (item 11): the same market is listed in two groups (Popular
+  // AND Goals — "Both teams to score" and "Total goals 2.5" appear in
+  // both), so the index held it twice per match and the 6-result cap cut
+  // the list off after 2 matches. Dedupe by (label + match): one entry
+  // per market per match, one entry per option per market per match.
+  const mkSeen = new Set();
   MATCHES.forEach(mm=>{
     if(mm._void || isFT(mm) || isFinished(mm)) return; // no markets on a closed match
     if(!mm._markets) mm._markets=marketsFor(mm);
     Object.entries(mm._markets).forEach(([g, mkts])=>mkts.forEach(mk=>{
-      mkIndex.push({label:mk.label, group:g, matchId:mm.id, sub:g+" · "+mm.home+" v "+mm.away});
-      mk.opts.forEach(op=>mkIndex.push({label:op.n, group:g, matchId:mm.id, sub:mk.label+" · "+g+" · "+mm.home+" v "+mm.away}));
+      const mkKey = "M|"+mm.id+"|"+mk.label;
+      if(!mkSeen.has(mkKey)){ mkSeen.add(mkKey); mkIndex.push({label:mk.label, group:g, matchId:mm.id, sub:g+" · "+mm.home+" v "+mm.away}); }
+      mk.opts.forEach(op=>{
+        const opKey = "O|"+mm.id+"|"+mk.label+"|"+op.n;
+        if(!mkSeen.has(opKey)){ mkSeen.add(opKey); mkIndex.push({label:op.n, group:g, matchId:mm.id, sub:mk.label+" · "+g+" · "+mm.home+" v "+mm.away}); }
+      });
     }));
   });
   const markets=mkIndex.filter(x=>{
@@ -2692,7 +3408,10 @@ function searchResultsHTML(q){
   if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
   if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
   if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
-  if(markets.length){ h+=`<div class="sr-group">Markets</div>`+markets.slice(0,6).map(mk=>`<button class="sr-item" onclick="goMatchMarket('${mk.matchId}', '${esc(mk.group)}', '${esc(mk.label)}')"><span class="tag">Market</span><span class="nm">${esc(mk.label)}</span><span class="meta">${esc(mk.sub)}</span></button>`).join(""); }
+  // Round 9 (item 11): a market search returns ALL matches that have the
+  // market — the old 6-result cap showed only the first 2 matches for
+  // "BTTS" even though 18 have it.
+  if(markets.length){ h+=`<div class="sr-group">Markets</div>`+markets.slice(0,80).map(mk=>`<button class="sr-item" onclick="goMatchMarket('${mk.matchId}', '${esc(mk.group)}', '${esc(mk.label)}')"><span class="tag">Market</span><span class="nm">${esc(mk.label)}</span><span class="meta">${esc(mk.sub)}</span></button>`).join(""); }
   return h+`</div>`;
 }
 
@@ -2767,6 +3486,10 @@ function pageLive(){
   const live=MATCHES.filter(isLiveNow);
   const finished=MATCHES.filter(isFinished); // Round 4: ended matches leave the live list but stay visible as Full time (soccer FT, basketball/tennis Final)
   const filtered=live.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
+  // Round 9 (item 13): the FULL TIME section follows the active sport /
+  // competition filter too — the old code always showed every finished
+  // match, even on a Tennis-only view.
+  const finishedFiltered=finished.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
   // Round 5: comp chips list EVERY competition of the selected sport (live
   // + upcoming) — deriving them from live matches only hid competitions
   // with nothing live (Champions League: 5 upcoming, 0 live) and the chip
@@ -2797,7 +3520,7 @@ function pageLive(){
     ${comps.map(c=>`<button class="fchip ${liveFilter.comp===c?"on":""}" onclick="liveFilter.comp='${esc(c)}';render()">${esc(c)}</button>`).join("")}
   </div>
   ${body}
-  ${finished.length?`<div class="group-label">Full time · ${finished.length} finished</div><div class="card">${finished.map(m=>matchRow(m)).join("")}</div>`:""}
+  ${finishedFiltered.length?`<div class="group-label">Full time · ${finishedFiltered.length} finished</div><div class="card">${finishedFiltered.map(m=>matchRow(m)).join("")}</div>`:""}
   <div class="footer-note"><span class="badge-demo">Demo prototype</span> &nbsp;Sample fixtures and odds only.</div>`;
 }
 
@@ -2824,8 +3547,53 @@ function pageFootball(){
 }
 
 /* --- Page 4: Match page --- */
+function timelineFor(m){
+  // Round 9 (item 15a): the match timeline runs to full time. The static
+  // entries (m1: 9', 23', 31', 45', 49') are kept, and the engine's events
+  // are appended — goals from the scorers (with the running score), cards
+  // from the hash schedule, substitutions at 60' and 75', and half-time /
+  // full-time markers. Only events up to the current minute are shown.
+  if(m.sport!=="Soccer") return null;
+  const started = isStarted(m);
+  const min = isLiveNow(m) ? curMin(m) : started ? startedInfo(m).min : (isFT(m) ? 90 : null);
+  if(min===null) return TIMELINE[m.id] || null;
+  const out = (TIMELINE[m.id] || []).slice();
+  const goalMins = new Set(out.filter(e=>e.icon==="⚽").map(e=>e.min));
+  const cardMins = new Set(out.filter(e=>e.icon==="🟨").map(e=>e.min));
+  const scorers = (started ? startedInfo(m).scorers : (m.scorers || [])).slice().sort((a,b)=>a.min-b.min);
+  let rh = 0, ra = 0;
+  for(const s of scorers){
+    if(s.min > min) break;
+    if(teamOfPlayer(s.p)===m.home) rh++; else ra++;
+    if(goalMins.has(s.min)) continue;
+    out.push({min: s.min, icon:"⚽", text:"Goal — "+s.p+" · "+rh+"–"+ra});
+  }
+  const scH = SCORERS[m.home]||["Top scorer"], scA = SCORERS[m.away]||["Top scorer"];
+  const seedMin = (m._seed && m._seed.minute) || 0;
+  for(let k = seedMin+1; k <= min; k++){
+    if(hash01(m.id+"|card|"+k) < 0.04 && !cardMins.has(k)){
+      const home = hash01(m.id+"|cardt|"+k) < 0.5;
+      const list = home ? scH : scA;
+      const p = list[Math.floor(hash01(m.id+"|cardp|"+k)*list.length)] || list[0];
+      out.push({min: k, icon:"🟨", text:"Yellow card — "+p});
+    }
+  }
+  if(min>=45 && !out.some(e=>e.min===45 && /Half time/.test(e.text))) out.push({min:45, icon:"⏸️", text:"Half time"});
+  if(min>=60) out.push({min:60, icon:"🔄", text:"Substitution — "+(scH[1]||scH[0])+" on, "+scH[0]+" off"});
+  if(min>=75) out.push({min:75, icon:"🔄", text:"Substitution — "+(scA[1]||scA[0])+" on, "+scA[0]+" off"});
+  if(min>=90) out.push({min:90, icon:"🏁", text:"Full time — "+(m.hs||0)+"–"+(m.as||0)});
+  out.sort((a,b)=>a.min-b.min);
+  return out.length ? out : null;
+}
 function pageMatch(id){
-  const m=MATCHES.find(x=>x.id===id)||MATCHES[0];
+  // Round 9 (item 15f): an unknown match id is a not-found page, not a
+  // silent redirect to the first match — the old code showed Arsenal for
+  // any bad id (m23 included).
+  const found = MATCHES.find(x=>x.id===id);
+  if(!found){
+    return `<div class="card" style="padding:20px 16px;margin-top:14px"><h2 style="font-size:18px;font-weight:800">Match not found</h2><p class="muted" style="margin-top:6px">There is no match with the id “${esc(id)}”. It may have been removed, or the link is wrong.</p><p style="margin-top:12px"><a href="#/live" style="color:var(--mint);font-weight:700">‹ Back to Live</a></p></div>`;
+  }
+  const m=found;
   if(window._lastMatch!==m.id){ matchTab="Popular"; window._lastMatch=m.id; }
   matchId=m.id;
   if(!m._markets) m._markets=marketsFor(m);
@@ -2839,12 +3607,25 @@ function pageMatch(id){
   const voided=isVoided(m);
   const fin=isFinished(m) && !ft;
   const ko=kickoffInfo(m); // Round 8 (item 5): past kickoff => "Started", like the list
+  // Round 9 (item 10): a started match (kickoff passed, still listed as
+  // upcoming) runs with a derived clock + score, so minute 1 and minute 80
+  // can be told apart — the same derived state that gates its markets.
+  const started = isStarted(m);
+  const st = started ? startedInfo(m) : null;
+  const stFt = started && st && st.ft;
+  // The derived clock may say "Full time" (stFt) once a started match has
+  // run past 90' in derived time, but the STATUS badge in the comp line
+  // below still says "Started · {time} WIB": this is not a live match that
+  // ended (nothing settles), and the Round 8 check verifies "Started" on
+  // this page. Do not add an stFt branch to the comp line.
   // Scoreboard clock: soccer ticks by the minute; tennis shows the set score
   // plus the live current-set games (ticking); basketball the counting-down
   // quarter clock.
   const clockHTML = voided ? `<span class="clock">Postponed</span>`
     : ft ? `<span class="clock">Full time</span>`
     : fin ? `<span class="clock">Final</span>`
+    : stFt ? `<span class="clock">Full time</span>`
+    : started ? (m.sport==="Soccer" ? `<span class="clock">Started · ${st.min}′</span>` : `<span class="clock">${esc(ko.startedLabel||"Started")}</span>`)
     : !live ? `<span class="clock">${ko.past ? "Started · " : ""}${esc(m.date||"")}</span>`
     : m.sport==="Tennis" ? `<span class="clock"><span data-tsetscore="${m.id}">${tennisNow(m).sets.map(s=>s[0]+"-"+s[1]).join(", ")||"–"}</span> · <span data-tsets="${m.id}">Set ${tennisNow(m).sets.length+1}</span> <span data-tgames="${m.id}">${tennisNow(m).games[0]}–${tennisNow(m).games[1]}</span></span>`
     : m.sport==="Basketball" ? `<span class="clock"><span data-bb-clock="${m.id}">${bbLabel(m)}</span></span>`
@@ -2852,23 +3633,30 @@ function pageMatch(id){
   // Round 7 (item 1): the period label is THE clock's period — 1st half
   // (1–45'), Half time (45' paused), 2nd half (46–90'). It is a live span
   // so refreshClocks() keeps it in step with the clock.
-  const halfLabel = (live && m.sport==="Soccer") ? `<span data-period-match="${m.id}">${periodLabel(m)}</span>` : (live ? m.sport : "");
+  const halfLabel = (live && m.sport==="Soccer") ? `<span data-period-match="${m.id}">${periodLabel(m)}</span>` : (started && m.sport==="Soccer") ? (st.period==="ht"?"Half time":st.period==="1h"?"1st half":st.period==="2h"?"2nd half":"Full time") : (live ? m.sport : "");
   const mkts=m._markets[matchTab];
-  const tl = TIMELINE[m.id];
+  const tl = timelineFor(m);
+  // Round 9 (item 9): during half time EVERY odd on the match page is
+  // locked — the list already said "odds paused" while the page kept
+  // selling Match result.
+  const htPaused = live && m.sport==="Soccer" && isHT(m);
   return `
   <div style="margin-bottom:10px"><a href="${m.sport==="Soccer"?"#/football":"#/live"}" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
-    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+(ko.past?"Started":ko.label)}</div>
+    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':started?' · '+esc(ko.startedLabel||"Started"):" · "+esc(m.date)+" "+(ko.past?"Started":ko.label)}</div>
     <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
     <div class="teams-row">
       <div class="team">${crest(m.home)}<div class="nm">${esc(m.home)}</div></div>
-      <div class="score">${(live||ft||fin)?m.hs:"–"}<span>–</span>${(live||ft||fin)?m.as:"–"}</div>
+      <div class="score">${(live||ft||fin)?m.hs:(started&&m.sport==="Soccer")?st.hs:"–"}<span>–</span>${(live||ft||fin)?m.as:(started&&m.sport==="Soccer")?st.as:"–"}</div>
       <div class="team">${crest(m.away)}<div class="nm">${esc(m.away)}</div></div>
     </div>
     <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
   </div>
+  ${live && m.sport==="Soccer" ? `<div class="card" style="padding:10px 14px;margin-bottom:14px"><div class="small" style="font-weight:700">Match stats</div><div class="small muted" style="margin-top:4px">Corners <b data-corners-match="${m.id}">${m.corners||0}</b> · Cards <b data-cards-match="${m.id}">${m.cards||0}</b></div></div>` : ""}
+  ${JUDGE_MODE && live && !voided && !ft ? `<div class="card" style="padding:10px 14px;margin-bottom:14px"><button onclick="voidMatch('${m.id}')" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer">🚫 Void this match</button> <span class="small muted">Judge only — voids this match and refunds every open bet on it in full.</span></div>` : ""}
   ${tl?`<div class="card" style="padding:13px 14px;margin-bottom:14px"><h3 style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px">Match events</h3>${tl.map(e=>`<div style="display:flex;gap:10px;padding:5px 0;font-size:13px"><span style="flex:0 0 34px;font-weight:800;font-variant-numeric:tabular-nums">${e.min}′</span><span style="flex:0 0 20px">${e.icon}</span><span>${esc(e.text)}</span></div>`).join("")}</div>`:""}
   <div class="var-banner${(varActive && m.id===MATCHES[0].id && !ft)?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
+  ${htPaused?`<div class="card" style="padding:13px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">Half time — odds paused</h3><p class="muted small" style="margin-top:4px">The break is on — no odds can be placed on this match until the 2nd half starts.</p></div>`:""}
   ${voided?`<div class="card" style="padding:16px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">Postponed — this match will not be played</h3><p class="muted small" style="margin-top:4px">The fixture was postponed. No odds are offered, and every open bet on this match settled as Void with the full stake refunded (see My bets → Settled).</p></div>`
   :ft?`<div class="card" style="padding:16px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">Full time — ${m.hs}–${m.as}</h3><p class="muted small" style="margin-top:4px">This match has ended. Betting is closed; the markets below are no longer offered.</p></div>`
   :`<div class="mtabs">
@@ -2885,7 +3673,7 @@ function pageMatch(id){
     const hl = window._pendingMarketLabel && mk.label===window._pendingMarketLabel;
     return `<div class="market${hl?" hl":""}" data-mlabel="${esc(mk.label)}"><h3>${esc(mk.label)} ${susp?'<span class="susp-tag">⛔ Suspended</span>':""}</h3>
       <div class="odds-grid ${mk.opts.length===2?"two":""}">
-        ${mk.opts.map(op=>oddsBtn(m, mk.label, {...op, suspended:susp})).join("")}
+        ${mk.opts.map(op=>oddsBtn(m, mk.label, {...op, suspended:susp || htPaused})).join("")}
       </div>
       ${susp?`<div class="small muted" style="margin-top:6px">This market is suspended — odds are locked while play is stopped. Tapping does nothing.${srem!==null?` Reopens in <span data-susp-count="${sk}">${srem}s</span>. <button onclick="unsuspendMarket('${sk}')" style="background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
     </div>`;
@@ -2979,7 +3767,11 @@ $("#topSearch").addEventListener("input", e=>{
   if(!(location.hash||"").startsWith("#/home")){
     searchQ = v; // pageHome renders with this query once we arrive
     go("#/home");
-    setTimeout(()=>{ setSearchQ(v, e.target); const h=$("#homeSearch"); if(h) h.focus(); },30);
+    // Round 9 (item 11): do NOT move focus to the home search box — the
+    // old setTimeout focus-steal fired mid-keystroke and swapped the first
+    // letter ("BTTS" came out "TTSB" when typing fast). The home box syncs
+    // its value via renderSearch; the user keeps typing where they started.
+    setSearchQ(v, e.target);
   } else {
     setSearchQ(v, e.target);
   }
