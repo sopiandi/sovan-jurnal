@@ -3126,11 +3126,10 @@ function renderSlip(){
 }
 function renderPanel(){
   const p=$("#panel"); if(!p) return;
+  // Round 9 (item 15e): the sidebar shows the 5 latest open bets, not just 2.
   p.innerHTML = `<div class="slip-head"><h2>Bet slip<span class="count">${slipCount()}</span></h2>${slip.length?`<button class="clearbtn" onclick="clearSlip()">Clear all</button>`:""}</div>
   ${slipHTML()}
   <div class="sec-head"><h2>My bets</h2><a href="#/bets">View all ›</a></div>
-  // Round 9 (item 15e): the sidebar shows the 5 latest open bets, not
-  // just 2 — the user had 10 bets and could only see 2 of them.
   ${myBets.open.slice(0,5).map(b=>`<div class="card bet"><div class="top"><div style="min-width:0"><div class="sel">${esc(b.sel)}</div><div class="mk">${esc(b.match)}</div></div><span class="st st-open">Open</span></div><div class="nums"><span>Odds <b>${fmt(b.odds)}</b></span><span>Stake <b>${fmt(b.stake)} USDT</b></span></div>${betSuspNoteHTML(b)}${cashOutRowHTML(b)}</div>`).join("") || '<div class="muted small">No open bets.</div>'}
   <div class="footer-note">Demo prototype for the Housebets design contest. Sample fixtures and odds only — no real players, no real money, no wallet.</div>`;
 }
