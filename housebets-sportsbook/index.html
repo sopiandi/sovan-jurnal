@@ -410,7 +410,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
    the seeded demo (balance 1,250 USDT, seeded My bets). This runs BEFORE any
    state is read from localStorage. The version is also shown in the footer
    ("Build v5") so a reviewer can tell which build is actually rendering. */
-const BUILD_VERSION = "7";
+const BUILD_VERSION = "8";
 (function(){
   let stored = null;
   try{ stored = localStorage.getItem("hb-proto-version"); }catch(e){}
@@ -501,6 +501,10 @@ const MATCHES = [
   mkMatch({sport:"Basketball", comp:"NBA", home:"Lakers", away:"Celtics", status:"live", minute:0, hs:78, as:71, period:"Q3 08:24", odds:{h:1.60,d:null,a:2.30}}),
   mkMatch({sport:"Basketball", comp:"NBA", home:"Warriors", away:"Nuggets", status:"upcoming", time:"22:00", date:"Sun, Nov 8", odds:{h:1.90,d:null,a:1.90}}),
 ];
+/* Round 8 (item 6) — seed snapshot, taken before anything can mutate a
+   match (loadLiveState, the clock engine, settlement). restartFeaturedMatch
+   restores the featured match from this, never from a guessed constant. */
+MATCHES.forEach(m=>{ m._seed = {minute:m.minute||0, hs:m.hs, as:m.as, status:m.status, period:m.period||null, setScore:m.setScore||null, games:m.games?m.games.slice():null}; });
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
 /* Match events for the featured live match — shirt numbers only, and consistent
    with the fixture itself (Arsenal 1–0 Brighton, 52'): the only goal is at 31'. */
@@ -619,6 +623,10 @@ function marketsFor(m){
       }
     }
     for(const k of Object.keys(groups)) if(!groups[k].length) delete groups[k];
+    // Round 8 (item 2): floor every odd at 1.01 (see the soccer tail).
+    for(const list of Object.values(groups)) for(const mk of list){
+      mk.opts.forEach(op=>{ op.odds = clampOdds(op.odds); });
+    }
     return groups;
   }
   if(m.sport==="Basketball") return {
@@ -880,6 +888,12 @@ function marketsFor(m){
       mk.opts.forEach(op=>{ const v = m._overlay[mk.label+"|"+op.n]; if(typeof v==="number") op.odds = v; });
     }
   }
+  // Round 8 (item 2): no odd anywhere may be below 1.00 — clamp the floor
+  // to 1.01. This runs AFTER the overlay, so a stale persisted price (e.g.
+  // a v7 Draw-no-bet overlay at 0.92) is clamped too.
+  for(const list of Object.values(groups)) for(const mk of list){
+    mk.opts.forEach(op=>{ op.odds = clampOdds(op.odds); });
+  }
   return groups;
 }
 
@@ -957,6 +971,22 @@ function curMin(m){
   if(m.sport==="Soccer" && m.status==="live") return soccerClock(m, Date.now()).minute;
   return (m.minute||0) + Math.floor((Date.now()-startTs)/60000);
 }
+/* Round 8 (item 4) — the seconds shown with a soccer clock must come from
+   the SAME clock base as the minute. The old code showed session seconds
+   (counted from page load) next to a match-relative minute, so after a
+   reload the two drifted apart and the clock appeared to run backwards
+   (44'49" -> 44'11"). Seconds are derived from the base exactly like the
+   minute, so minute and seconds can only move forward together. */
+function soccerSec(m, now){
+  const base = clockBase(m);
+  if(base.minute <= 45){
+    const t45 = base.at + (45 - base.minute)*60000;
+    if(now < t45) return Math.floor((now - base.at)/1000) % 60;
+    if(now < t45 + HT_MS) return 0;
+    return Math.floor((now - (t45 + HT_MS))/1000) % 60;
+  }
+  return Math.floor((now - base.at)/1000) % 60;
+}
 /* The ONE period label, used on the match page, list rows and the Bets page
    (item 1): minutes 1-45 = "1st half", 46-90 = "2nd half", 45' paused =
    "Half time". */
@@ -989,7 +1019,8 @@ function finishedLabel(m){
 }
 function isLiveNow(m){ return m.status==="live" && !isFT(m) && !m._void && !isFinished(m); }
 function liveCountNow(){ return MATCHES.filter(isLiveNow).length; }
-function curSec(){ return Math.floor((Date.now()-startTs)/1000)%60; }
+/* (Round 8: curSec() was removed — the seconds shown with a soccer clock
+   come from soccerSec(m), the match's own clock base, not the session.) */
 /* Round 7 — BASKETBALL CLOCK (item 4). A quarter is 12:00, counting DOWN
    every second; at 00:00 the next quarter starts at 12:00. Pure function of
    the persisted base {q, sec, at} — a reload continues the countdown. */
@@ -1060,6 +1091,13 @@ function tennisSetsWon(m){ const t=tennisNow(m); return [t.sets.filter(s=>s[0]>s
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmt = n => (Math.round(n*100)/100).toFixed(2);
+/* Round 8 (item 2) — no decimal odd may ever be below 1.00 (a stake would
+   return less than itself). 1.01 is the floor, enforced at generation
+   (marketsFor), at the score-aware reprice (applyScoreOdds) and at every
+   read (currentOdds) — so a stale persisted overlay or a derived price
+   (Draw no bet at 0.88× / 0.55× of a short 1X2) can never surface. */
+const MIN_ODDS = 1.01;
+const clampOdds = v => { const n = +v; return (isNaN(n) || n < MIN_ODDS) ? MIN_ODDS : +n.toFixed(2); };
 const fmtC = n => { // thousands-separated, for the balance display: 1,250.00
   const neg = n < 0, s = (Math.round(Math.abs(n)*100)/100).toFixed(2);
   const [i, d] = s.split(".");
@@ -1094,13 +1132,20 @@ function goMatch(id, tab){ window._pendingMatchTab = tab||null; window._pendingM
 // the match page.
 function goMatchMarket(id, tab, label){ window._pendingMatchTab = tab||null; window._pendingMarketLabel = label||null; go('#/match/'+id); }
 function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); }
-function saveAll(){ store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); broadcastState(); }
+/* Round 8 (item 3) — RESET GUARD. While a reset is in progress, no save
+   may run: the old Reset removed the keys and reloaded, but the
+   beforeunload handler re-saved the live state on the way out, so the
+   reload came back with the old demo intact (FT matches stayed FT, the
+   seeded open bet re-settled immediately). */
+let resetting = false;
+function saveAll(){ if(resetting) return; store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); broadcastState(); }
 /* Round 7 (items 8, 9) — PERSISTED LIVE STATE. A reload must continue the
    demo, not re-randomise it: clock bases (soccer/basketball/tennis), scores,
    the score-aware 1X2 overlay, the tick-drift price overlay, and the
    finished / voided flags. All of it is derived state rebuilt from these
    seeds, so nothing is ever re-randomised on load. */
 function saveLiveState(){
+  if(resetting) return; // Round 8 (item 3): never re-save during a reset.
   try{
     const live = {};
     MATCHES.forEach(m=>{
@@ -1207,15 +1252,15 @@ function applyScoreOdds(m){
     // Derivatives of the 1X2 move with it (same formulas as marketsFor).
     const dcm = pop.find(mk=>mk.label==="Double chance");
     if(dcm) dcm.opts.forEach(op=>{
-      if(op.n===m.home+" / Draw") op.odds = dc(x2.h, x2.d);
-      else if(op.n===m.home+" / "+m.away) op.odds = dc(x2.h, x2.a);
-      else if(op.n==="Draw / "+m.away) op.odds = dc(x2.d, x2.a);
+      if(op.n===m.home+" / Draw") op.odds = clampOdds(dc(x2.h, x2.d));
+      else if(op.n===m.home+" / "+m.away) op.odds = clampOdds(dc(x2.h, x2.a));
+      else if(op.n==="Draw / "+m.away) op.odds = clampOdds(dc(x2.d, x2.a));
       m._overlay["Double chance|"+op.n] = op.odds;
     });
     const dnb = pop.find(mk=>mk.label==="Draw no bet");
     if(dnb) dnb.opts.forEach(op=>{
-      if(op.n===m.home) op.odds = +(x2.h*0.88).toFixed(2);
-      else if(op.n===m.away) op.odds = +(x2.a*0.55).toFixed(2);
+      if(op.n===m.home) op.odds = clampOdds(+(x2.h*0.88).toFixed(2));
+      else if(op.n===m.away) op.odds = clampOdds(+(x2.a*0.55).toFixed(2));
       m._overlay["Draw no bet|"+op.n] = op.odds;
     });
     // Exact score: reprice every option off the score + minute, and make
@@ -1491,6 +1536,43 @@ function voidFeaturedMatch(){
   toast("🚫 Match voided — "+m.home+" v "+m.away+" postponed; "+bets.length+" open bet"+(bets.length===1?"":"s")+" refunded in full", "ok");
   render();
 }
+/* Round 8 (item 6) — RESTART THE FEATURED MATCH (?judge=1 only). The void
+   test (place bet -> void -> stake returned) needs a FRESH featured match,
+   but the FT jump locks to the one featured match and Reset was broken —
+   so a judge can restart the featured match to its seeded live state
+   (minute + score from the seed snapshot) without touching bets, balance
+   or follows. Settled bets stay settled (they are history); the match
+   itself is live again and takes fresh bets, which can then be voided. */
+function restartFeaturedMatch(){
+  const m = MATCHES[0];
+  const s = m._seed || {minute:52, hs:1, as:0, status:"live"};
+  if(!m._void && !m._finished && !isFT(m) && m.status==="live"){
+    toast("Already live — "+m.home+" v "+m.away+" is in play at "+curMin(m)+"′", "err");
+    return;
+  }
+  // Clear every piece of runtime state so the match is live again from seed.
+  delete m._clockBase; delete m._bbBase; delete m._tennisBase;
+  delete m._x2; delete m._overlay; delete m._markets;
+  delete m._finished; delete m._void; delete m._ft;
+  delete m._lastPeriod; delete m._lastMin; delete m._lastGateMin; delete m._lastTennisSets;
+  m.status = s.status || "live";
+  m.minute = s.minute; m.hs = s.hs; m.as = s.as;
+  if(s.period!==null && s.period!==undefined) m.period = s.period;
+  if(s.setScore!==null && s.setScore!==undefined) m.setScore = s.setScore;
+  if(s.games) m.games = s.games.slice();
+  // Unsuspend its markets and clear the VAR flag (both belong to the old incarnation).
+  [...suspendedMarkets].forEach(k=>{ if(k.startsWith(m.id+"|")) unsuspendMarket(k); });
+  varActive = false;
+  // Slip entries on this match quote the old incarnation's prices — drop
+  // them so a fresh test starts from an empty slip.
+  slip = slip.filter(x=>x.matchId!==m.id);
+  slipMsg = null;
+  applyScoreOdds(m);
+  m._markets = marketsFor(m);
+  saveLiveState(); saveAll();
+  toast("🔄 Featured match restarted — "+m.home+" v "+m.away+" live again from "+s.minute+"′", "ok");
+  render();
+}
 function previewBoxHTML(){
   // Round 5: the judge panel is a demo control, not part of the public entry
   // — it only renders when the URL carries ?judge=1. The states themselves
@@ -1506,6 +1588,7 @@ function previewBoxHTML(){
       <button onclick="previewOddsChanged()">⚠️ Odds changed</button>
       <button onclick="jumpToFT()">⏱️ Jump to full time</button>
       <button onclick="voidFeaturedMatch()">🚫 Void featured match</button>
+      <button onclick="restartFeaturedMatch()">🔄 Restart featured match</button>
     </div>
     <div class="states-seen">States seen <b class="st-count">${seenStates.size}/8</b>: ${STATE_LABELS.map(([k,l])=>`<span class="st-chip${seenStates.has(k)?" done":""}" data-state="${k}">${seenStates.has(k)?"✓ ":""}${l}</span>`).join(" ")}</div>
   </div>`;
@@ -1525,9 +1608,14 @@ function onExternalStateChange(){
   if(activeId){ const el = document.getElementById(activeId); if(el) el.focus(); }
 }
 window.addEventListener("storage", e=>{
-  if(e.key && String(e.key).startsWith("hb-proto-")) onExternalStateChange();
+  if(!e.key || !String(e.key).startsWith("hb-proto-")) return;
+  // Round 8 (item 3): a REMOVED key means another tab pressed Reset (or the
+  // version migration ran) — reset this tab too instead of re-reading stale
+  // state and re-saving it on the next autosave.
+  if(e.newValue===null){ resetting = true; location.reload(); return; }
+  onExternalStateChange();
 });
-if(hbChannel){ hbChannel.onmessage = ()=>onExternalStateChange(); }
+if(hbChannel){ hbChannel.onmessage = ev=>{ if(ev && ev.data && ev.data.t==="reset"){ resetting = true; location.reload(); } else onExternalStateChange(); }; }
 setInterval(tickOdds, 6000); // Round 3: was 5s — the page must breathe, but placing must not be a race
 setInterval(tickSuspension, 42000);
 // Scripted VAR check on the featured match ~75s after load: suspends Match result briefly
@@ -1545,7 +1633,7 @@ setTimeout(()=>{
 }, 75000);
 // Live clocks tick every second. Round 5: ONE clock source per match — every
 // display carries the match id (data-clock-match / data-clock-min-match) and
-// refreshClocks() derives all of them from curMin(m) / curSec() in one pass,
+// refreshClocks() derives all of them from curMin(m) / soccerSec(m) in one pass,
 // so Home, Live, Football and the Match page can never disagree and no
 // display stalls between navigations. The previous bug: list rows carried a
 // stale seeded minute in a data attribute and only updated when the 1s
@@ -1559,7 +1647,7 @@ function refreshClocks(){
     const m = MATCHES.find(x=>x.id===el.dataset.clockMatch); if(!m) return;
     if(isVoided(m)){ el.textContent = "Postponed"; return; }
     if(isHT(m)){ el.textContent = "45′ Half time"; return; }
-    el.textContent = curMin(m)+"′ "+String(curSec()).padStart(2,"0")+"″";
+    el.textContent = curMin(m)+"′ "+String(soccerSec(m, Date.now())).padStart(2,"0")+"″";
   });
   $$("[data-clock-min-match]").forEach(el=>{
     const m = MATCHES.find(x=>x.id===el.dataset.clockMinMatch); if(!m) return;
@@ -1628,6 +1716,7 @@ window.__hb = {
   // Round 6: probe hooks for the settlement acceptance test.
   jumpToFT(){ jumpToFT(); },
   voidFeatured(){ voidFeaturedMatch(); },
+  restartFeatured(){ restartFeaturedMatch(); },
   settleHT(id){ const m=MATCHES.find(x=>x.id===id); return m?settleHTBets(m):null; },
   state(){ return {balance, open: myBets.open, settled: myBets.settled}; },
   settleOutcome(sel, market, id){ const m=MATCHES.find(x=>x.id===id); return m?settleOutcome({sel, market}, m):null; },
@@ -1679,7 +1768,10 @@ function checkTransitions(){
       else if(m._lastPeriod!==period){
         m._lastPeriod = period;
         m._markets = marketsFor(m);
-        if(location.hash.startsWith("#/match/"+m.id)) needRender = true;
+        // Round 8 (item 1): a period change re-renders EVERYWHERE, not just
+        // the match page — the Live list row must flip to "Half time" with
+        // paused odds the moment the break starts, and back when it ends.
+        needRender = true;
       }
       // Minute rollover: reprice the 1X2 off the score + minute (item 7).
       if(m._lastMin===undefined) m._lastMin = lm;
@@ -1754,7 +1846,7 @@ function currentOdds(m, label, sel, fallback){
     for(const mk of g){
       if(mk.label===label){
         const op = mk.opts.find(o=>o.n===sel);
-        if(op) return op.odds;
+        if(op) return clampOdds(op.odds); // Round 8 (item 2): floor 1.01
       }
     }
   }
@@ -2238,11 +2330,17 @@ function renderSlipMsgNodes(){
     }
   });
 }
+/* Round 8 (item 3) — RESET DEMO DATA, fixed. Remove all four state keys,
+   tell other open tabs to reset too, then reload into the seeded state.
+   The `resetting` flag (set FIRST) suppresses every save — the 5s autosave,
+   the visibilitychange save and the beforeunload save — so nothing can
+   re-persist the old demo between the key removal and the reload. */
 function resetDemo(){
-  localStorage.removeItem("hb-proto-follows"); localStorage.removeItem("hb-proto-mybets"); localStorage.removeItem("hb-proto-balance"); localStorage.removeItem("hb-proto-live");
-  follows={comps:["Premier League"],teams:["Arsenal"]};
-  myBets=store.get("mybets",null)||myBets;
-  balance=1250;
+  resetting = true;
+  try{ ["follows","mybets","balance","live"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
+  try{ if(hbChannel) hbChannel.postMessage({t:"reset", at:Date.now()}); }catch(e){}
+  follows = {comps:["Premier League"], teams:["Arsenal"]};
+  balance = 1250;
   location.reload();
 }
 
@@ -2445,6 +2543,7 @@ function matchRow(m, showMore, mode){
   const live = isLiveNow(m);
   const voided = isVoided(m);
   const fin = isFinished(m) && !ft; // basketball/tennis finals (soccer FT is `ft`)
+  const ht = m.sport==="Soccer" && isHT(m); // Round 8 (item 1): half-time break
   // Non-soccer rows use the sport's own market name — "Match result" is soccer-only.
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   // Tennis rows show the live set + current-set games (ticking, see
@@ -2454,7 +2553,8 @@ function matchRow(m, showMore, mode){
   // row and the match page can never disagree.
   const liveWhen = m.sport==="Tennis" ? `<span class="live-badge">Live</span><div class="clock"><span data-tsets="${m.id}">Set ${tennisNow(m).sets.length+1}</span> · <span data-tgames="${m.id}">${tennisNow(m).games[0]}–${tennisNow(m).games[1]}</span></div>`
     : m.sport==="Basketball" ? `<span class="live-badge">Live</span><div class="clock"><span data-bb-clock="${m.id}">${bbLabel(m)}</span></div>`
-    : `<span class="live-badge">Live</span><div class="clock" data-clock-min-match="${m.id}">${isHT(m)?"45′":curMin(m)+"′"}</div>`;
+    : ht ? `<span class="live-badge" style="background:var(--amber);color:#241a02">Half time</span><div class="clock" data-clock-min-match="${m.id}">45′</div>`
+    : `<span class="live-badge">Live</span><div class="clock" data-clock-min-match="${m.id}">${curMin(m)}′</div>`;
   const ko = kickoffInfo(m);
   const when = voided ? `<span class="live-badge" style="background:var(--muted2)">Postponed</span>`
     : ft ? `<span class="live-badge" style="background:var(--muted2)">FT</span>`
@@ -2480,6 +2580,7 @@ function matchRow(m, showMore, mode){
     ${voided?`<div class="modds"><span class="muted small" style="font-weight:700">Postponed</span></div>`
     :ft?`<div class="modds"><span class="muted small" style="font-weight:700">Full time</span></div>`
     :fin?`<div class="modds"><span class="muted small" style="font-weight:700">Final</span></div>`
+    :ht?`<div class="modds"><span class="muted small" style="font-weight:700">Half time — odds paused</span></div>`
     :`<div class="modds">
       ${rowOdds(m, mode).join("")}
     </div>`}
@@ -2491,6 +2592,7 @@ function featCard(m){
   const live=isLiveNow(m);
   const voided=isVoided(m);
   const fin=isFinished(m) && !ft;
+  const ht=m.sport==="Soccer" && isHT(m); // Round 8 (item 1): half-time break
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   // Sport-aware live clock — tennis never shows a minute (same rule as matchRow).
   const ko = kickoffInfo(m);
@@ -2500,14 +2602,17 @@ function featCard(m){
     : !live ? `<span>${esc(m.date)} · ${ko.past?"Started":ko.label}</span>`
     : m.sport==="Tennis" ? `<span><span class="live-badge">Live</span> <span class="clock"><span data-tsets="${m.id}">Set ${tennisNow(m).sets.length+1}</span> · <span data-tgames="${m.id}">${tennisNow(m).games[0]}–${tennisNow(m).games[1]}</span></span></span>`
     : m.sport==="Basketball" ? `<span><span class="live-badge">Live</span> <span class="clock"><span data-bb-clock="${m.id}">${bbLabel(m)}</span></span></span>`
-    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min-match="${m.id}">${isHT(m)?"45′":curMin(m)+"′"}</span></span>`;
+    : ht ? `<span><span class="live-badge" style="background:var(--amber);color:#241a02">Half time</span> <span class="clock" data-clock-min-match="${m.id}">45′</span></span>`
+    : `<span><span class="live-badge">Live</span> <span class="clock" data-clock-min-match="${m.id}">${curMin(m)}′</span></span>`;
   return `<div class="card feat" onclick="go('#/match/${m.id}')">
     <div class="top"><span>${esc(m.comp)}</span>${clockHtml}</div>
     <div class="tm">${crest(m.home)}${esc(m.home)}<span class="sc">${(live||ft||fin)?m.hs:""}</span></div>
     <div class="tm">${crest(m.away)}${esc(m.away)}<span class="sc">${(live||ft||fin)?m.as:""}</span></div>
     ${voided?`<div class="muted small" style="font-weight:700">Postponed — all bets on this match were voided and stakes refunded.</div>`
     :ft?`<div class="muted small" style="font-weight:700">Full time — ${m.hs}–${m.as}</div>`
-    :fin?`<div class="muted small" style="font-weight:700">Final — ${m.hs}–${m.as}</div>`:`<div class="odds-grid">
+    :fin?`<div class="muted small" style="font-weight:700">Final — ${m.hs}–${m.as}</div>`
+    :ht?`<div class="muted small" style="font-weight:700">Half time — odds paused</div>`
+    :`<div class="odds-grid">
       ${oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
       ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
       ${oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})}
@@ -2652,7 +2757,11 @@ function pageLive(){
     window._lastLiveHash = hashNow;
     const params=new URLSearchParams(hashNow.split("?")[1]||"");
     const qsSport=params.get("sport");
-    liveFilter.sport = qsSport || "All";
+    // Round 8 (item 7): the data calls the sport "Soccer" — accept the
+    // "Football" alias in the URL too, so #/live?sport=Football lists the
+    // live football matches instead of none.
+    const SPORT_ALIASES = {football:"Soccer", soccer:"Soccer", tennis:"Tennis", basketball:"Basketball"};
+    liveFilter.sport = (qsSport && SPORT_ALIASES[qsSport.toLowerCase()]) || qsSport || "All";
     if(qsSport) liveFilter.comp = "All"; // a sport link is a fresh sport view, not a comp-filtered one
   }
   const live=MATCHES.filter(isLiveNow);
@@ -2729,16 +2838,17 @@ function pageMatch(id){
   const live=isLiveNow(m);
   const voided=isVoided(m);
   const fin=isFinished(m) && !ft;
+  const ko=kickoffInfo(m); // Round 8 (item 5): past kickoff => "Started", like the list
   // Scoreboard clock: soccer ticks by the minute; tennis shows the set score
   // plus the live current-set games (ticking); basketball the counting-down
   // quarter clock.
   const clockHTML = voided ? `<span class="clock">Postponed</span>`
     : ft ? `<span class="clock">Full time</span>`
     : fin ? `<span class="clock">Final</span>`
-    : !live ? `<span class="clock">${esc(m.date||"")}</span>`
+    : !live ? `<span class="clock">${ko.past ? "Started · " : ""}${esc(m.date||"")}</span>`
     : m.sport==="Tennis" ? `<span class="clock"><span data-tsetscore="${m.id}">${tennisNow(m).sets.map(s=>s[0]+"-"+s[1]).join(", ")||"–"}</span> · <span data-tsets="${m.id}">Set ${tennisNow(m).sets.length+1}</span> <span data-tgames="${m.id}">${tennisNow(m).games[0]}–${tennisNow(m).games[1]}</span></span>`
     : m.sport==="Basketball" ? `<span class="clock"><span data-bb-clock="${m.id}">${bbLabel(m)}</span></span>`
-    : `<span class="clock" data-clock-match="${m.id}">${isHT(m)?"45′ Half time":curMin(m)+"′ "+String(curSec()).padStart(2,"0")+"″"}</span>`;
+    : `<span class="clock" data-clock-match="${m.id}">${isHT(m)?"45′ Half time":curMin(m)+"′ "+String(soccerSec(m, Date.now())).padStart(2,"0")+"″"}</span>`;
   // Round 7 (item 1): the period label is THE clock's period — 1st half
   // (1–45'), Half time (45' paused), 2nd half (46–90'). It is a live span
   // so refreshClocks() keeps it in step with the clock.
@@ -2748,7 +2858,7 @@ function pageMatch(id){
   return `
   <div style="margin-bottom:10px"><a href="${m.sport==="Soccer"?"#/football":"#/live"}" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
-    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+kickoffInfo(m).label}</div>
+    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':" · "+esc(m.date)+" "+(ko.past?"Started":ko.label)}</div>
     <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
     <div class="teams-row">
       <div class="team">${crest(m.home)}<div class="nm">${esc(m.home)}</div></div>
