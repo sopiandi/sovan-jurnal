@@ -35,7 +35,22 @@ input,select{font-family:inherit}
 .topsearch input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--text);padding:8px 12px 8px 34px;font-size:14px;outline:none}
 .topsearch input:focus{border-color:var(--cyan-dim)}
 .topsearch .wrap{position:relative}
-.topsearch .wrap::before{content:"🔍";position:absolute;left:10px;top:8px;font-size:13px;opacity:.7}
+.topsearch .wrap svg{position:absolute;left:10px;top:9px;width:15px;height:15px;color:var(--muted);pointer-events:none}
+/* Round 11 (item 4): every UI icon is an inline SVG, never an emoji or a
+   text glyph — a machine without an emoji font must render the same chrome.
+   Sizes follow the context: rail/bottom nav 19–20px, chips 15px, stars 16px. */
+.ic-svg{width:16px;height:16px;flex:0 0 auto;vertical-align:-2px}
+.ic svg{width:18px;height:18px;flex:0 0 auto;vertical-align:-3px}
+.rail button .ic svg,.bottomnav button .ic svg{width:20px;height:20px}
+.logo .wave svg{width:22px;height:22px;vertical-align:-4px}
+.walletbtn svg{width:16px;height:16px}
+.big svg{width:30px;height:30px}
+.chip .ic svg{width:15px;height:15px}
+.starbtn svg{width:16px;height:16px}
+.starbtn.on svg{fill:currentColor}
+.odds .lb svg{width:12px;height:12px;vertical-align:-1px}
+.livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);flex:0 0 auto}
+.slip-msg .retrybtn{background:var(--mint);color:var(--mint-ink);border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800;cursor:pointer;margin-left:8px;flex:0 0 auto}
 .prize{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:6px 11px;margin-left:auto;white-space:nowrap}
 .prize .t{font-size:10px;color:var(--muted);line-height:1.1}
 .prize .v{font-size:13px;font-weight:700;color:#ffd166;line-height:1.1}
@@ -94,8 +109,12 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
    minimum — not a 2px-padding glyph inside a filter chip. */
 .starbtn{min-width:28px;min-height:28px;padding:4px 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .odds .vl{font-size:15px;font-weight:800;color:var(--cyan);font-variant-numeric:tabular-nums;line-height:1.15}
-.odds.sel{background:rgba(53,211,232,.16);border-color:var(--cyan)}
+.odds.sel{background:rgba(53,211,232,.38);border-color:var(--cyan);box-shadow:inset 0 0 0 1px var(--cyan)}
 .odds.sel .vl{color:var(--cyan)}
+/* Round 11 (item 21): a selected odd is unmistakable — a strong filled
+   tint plus a check mark before the label, not a thin outline. */
+.odds.sel .lb{color:var(--text);font-weight:700}
+.odds.sel .lb::before{content:"✓ ";color:var(--cyan);font-weight:800}
 .odds.locked{opacity:.55;cursor:not-allowed}
 .odds.locked .vl{color:var(--muted)}
 .odds.up .vl{color:var(--green)}
@@ -108,10 +127,8 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .odds-grid.two{grid-template-columns:repeat(2,1fr)}
 
 /* search */
-.searchbar{position:relative;margin:4px 0 12px}
-.searchbar input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 14px 12px 40px;font-size:15px;outline:none}
-.searchbar input:focus{border-color:var(--cyan-dim)}
-.searchbar::before{content:"🔍";position:absolute;left:13px;top:12px;font-size:15px;opacity:.75}
+/* Round 11 (item 15): the home search box is gone — the top bar is the
+   only search box. (The old .searchbar rules lived here.) */
 .search-results{margin-bottom:14px}
 .sr-group{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
 .sr-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px}
@@ -236,7 +253,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .slip-item .ret{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;color:var(--muted)}
 .slip-item .ret b{color:var(--text);font-variant-numeric:tabular-nums}
 .slip-item .chips{display:flex;gap:6px;margin-top:8px}
-.slip-item .chip{flex:1;background:var(--odd-bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 0;font-size:12px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
+.slip-item .chip{flex:0 0 auto;min-width:56px;background:var(--card3);border:1px solid var(--border2);color:var(--text);border-radius:999px;padding:7px 0;font-size:12px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
 .slip-item .chip:hover{border-color:var(--cyan-dim)}
 .slip-item .chip.on{background:var(--cyan);border-color:var(--cyan);color:#04222a}
 .slip-item .chip:disabled{opacity:.4;cursor:default}
@@ -318,12 +335,12 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 @media(min-width:900px){.sheet,.sheet-veil{display:none!important}}
 
 /* toast */
-/* Round 6: on phones the toasts sit BELOW the top bar, not at the bottom —
-   at bottom:130px the green "Bet placed — good luck!" pill floated over the
-   My bets card's stake/potential amounts. Desktop keeps bottom:30px (the
-   centred pill never reaches the right-hand panel there). */
-.toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--topbar-h) + 10px);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;width:min(92vw,420px);pointer-events:none}
-@media(min-width:900px){.toasts{top:auto;bottom:30px}}
+/* Round 11 (item 20): the toast never sits in the middle of the screen
+   covering the odds rows. Desktop: bottom-right, next to the bet-slip
+   panel. Mobile: just above the bottom bar, full width. (Round 6 had it
+   top-centre on phones, where it floated over the odds rows.) */
+.toasts{position:fixed;left:12px;right:12px;bottom:76px;z-index:90;display:flex;flex-direction:column;gap:8px;align-items:stretch;pointer-events:none}
+@media(min-width:900px){.toasts{left:auto;right:16px;bottom:30px;width:340px;align-items:flex-end}}
 .toast{background:#1a2740;border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;border-radius:10px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.55);animation:tin .2s ease-out}
 .toast.err{border-color:rgba(240,68,82,.6);color:#ff9aa2}
 .toast.ok{border-color:rgba(47,212,122,.55);color:#7de8ac}
@@ -359,21 +376,19 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 <header class="topbar">
   <a class="logo" href="#/home" aria-label="Housebets home">
     <img src="logo.svg" alt="Housebets" onerror="this.style.display='none'">
-    <span class="wave">🌊</span>
+    <span class="wave"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></span>
   </a>
-  <div class="topsearch"><div class="wrap"><input id="topSearch" type="text" placeholder="Search teams, players or leagues" autocomplete="off"></div></div>
-  <button class="walletbtn" onclick="go('#/bets')">💰 Wallet</button>
-  <button class="topbtn btn-login" onclick="toast('Demo prototype — no login needed')">Log In</button>
-  <button class="topbtn btn-reg" onclick="toast('Demo prototype — no login needed')">Register</button>
+  <div class="topsearch"><div class="wrap"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="topSearch" type="text" placeholder="Search teams, players or leagues" autocomplete="off"></div></div>
+  <button class="walletbtn" onclick="go('#/bets')"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Wallet</button>
 </header>
 
 <div class="shell">
   <nav class="rail" id="rail">
-    <button data-route="home" onclick="go('#/home')"><span class="ic">🏠</span>Home</button>
-    <button data-route="live" onclick="goLive()"><span class="ic">📺</span>Live</button>
-    <button data-route="football" onclick="go('#/football')"><span class="ic">⚽</span>Football</button>
+    <button data-route="home" onclick="go('#/home')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Home</button>
+    <button data-route="live" onclick="goLive()"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>Live</button>
+    <button data-route="football" onclick="go('#/football')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7.6 15 9.7 13.9 13.3 10.1 13.3 9 9.7Z"/><path d="M12 7.6V3.6M15 9.7l3.3-1.5M13.9 13.3l1.9 3.3M10.1 13.3l-1.9 3.3M9 9.7 5.7 8.2"/></svg></span>Football</button>
     <div class="sep"></div>
-    <button data-route="bets" onclick="go('#/bets')"><span class="ic">🧾</span>My Bets</button>
+    <button data-route="bets" onclick="go('#/bets')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>My Bets</button>
   </nav>
 
   <main class="main" id="view"></main>
@@ -386,10 +401,10 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 </div>
 
 <nav class="bottomnav" id="bottomnav">
-  <button data-route="home" onclick="go('#/home')"><span class="ic">🏠</span>Home</button>
-  <button data-route="live" onclick="goLive()"><span class="ic">📺</span>Live</button>
-  <button data-route="football" onclick="go('#/football')"><span class="ic">⚽</span>Football</button>
-  <button data-route="bets" onclick="go('#/bets')"><span class="ic">🧾</span>Bets<span class="bdot" id="navBetsDot" style="display:none">0</span></button>
+  <button data-route="home" onclick="go('#/home')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Home</button>
+  <button data-route="live" onclick="goLive()"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>Live</button>
+  <button data-route="football" onclick="go('#/football')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7.6 15 9.7 13.9 13.3 10.1 13.3 9 9.7Z"/><path d="M12 7.6V3.6M15 9.7l3.3-1.5M13.9 13.3l1.9 3.3M10.1 13.3l-1.9 3.3M9 9.7 5.7 8.2"/></svg></span>Football</button>
+  <button data-route="bets" onclick="go('#/bets')"><span class="ic"><svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>Bets<span class="bdot" id="navBetsDot" style="display:none">0</span></button>
 </nav>
 
 <div class="sheet-veil" id="veil" onclick="closeSheet()"></div>
@@ -410,7 +425,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
    the seeded demo (balance 1,250 USDT, seeded My bets). This runs BEFORE any
    state is read from localStorage. The version is also shown in the footer
    ("Build v5") so a reviewer can tell which build is actually rendering. */
-const BUILD_VERSION = "10";
+const BUILD_VERSION = "11";
 (function(){
   let stored = null;
   try{ stored = localStorage.getItem("hb-proto-version"); }catch(e){}
@@ -637,17 +652,11 @@ function syncBbScore(m){
   return true;
 }
 const COMPS = ["Premier League","Champions League","LaLiga","Serie A","Bundesliga"];
-/* Match events for the featured live match — shirt numbers only, and consistent
-   with the fixture itself (Arsenal 1–0 Brighton, 52'): the only goal is at 31'. */
-const TIMELINE = {
-  m1: [
-    {min:9,  icon:"🟨", text:"Yellow card — BHA No. 6 (foul on ARS No. 7)"},
-    {min:23, icon:"🟨", text:"Yellow card — ARS No. 4 (late tackle)"},
-    {min:31, icon:"⚽", text:"Goal — ARS No. 9 (assist ARS No. 7) · 1–0"},
-    {min:45, icon:"🎯", text:"Chance — BHA No. 11 heads over the bar"},
-    {min:49, icon:"🔄", text:"Substitution — ARS No. 17 on, ARS No. 10 off"}
-  ]
-};
+/* Round 11 (P0): the match timeline ("Match events") and the "Match stats"
+   box are OUT OF SCOPE per the brief ("Stats widgets, match trackers") —
+   removed from every match page. The scoreboard + Full time label still
+   carry the final score. (The old TIMELINE const and timelineFor() lived
+   here; both are gone with the section.) */
 
 /* markets for a match page — generated from 1X2 odds */
 /* Round 3 — deterministic per-match seed: a hash of the fixture identity.
@@ -811,6 +820,22 @@ function marketsFor(m, opts){
         });
       }
       for(const g of Object.keys(groups)) if(!groups[g].length) delete groups[g];
+    }
+    // Round 11 (item 12): re-apply the persisted live-price overlay — the
+    // basketball branch used to return WITHOUT it, so a rebuild or a reload
+    // reset every drifted basketball price to the seed (Lakers 1.53 → 1.61
+    // after a reload). Soccer and tennis already re-apply it; now all three
+    // branches do, so one price survives everywhere.
+    // Skipped when opts.noOverlay (the cash-out model's clean price).
+    if(m._overlay && !opts.noOverlay){
+      for(const list of Object.values(groups)) for(const mk of list){
+        mk.opts.forEach(op=>{ const v = m._overlay[mk.label+"|"+op.n]; if(typeof v==="number") op.odds = v; });
+      }
+    }
+    for(const k of Object.keys(groups)) if(!groups[k].length) delete groups[k];
+    // Round 8 (item 2): floor every odd at 1.01 (see the soccer tail).
+    for(const list of Object.values(groups)) for(const mk of list){
+      mk.opts.forEach(op=>{ op.odds = clampOdds(op.odds); });
     }
     return groups;
   }
@@ -1133,7 +1158,7 @@ clearResetMarker();
 // in memory (and the reload re-reads them from the emptied storage).
 const SEED_FOLLOWS = {comps:["Premier League"], teams:["Arsenal"]};
 const SEED_MYBETS = {
-  open:[{id:"b1", sel:"Arsenal to win", market:"Match result", match:"Arsenal v Brighton & Hove Albion", comp:"Premier League", odds:1.80, stake:20, placed:"Oct 17, 14:58", cashout:24.50, live:true}],
+  open:[{id:"b1", sel:"Arsenal to win", market:"Match result", match:"Arsenal v Brighton & Hove Albion", comp:"Premier League", odds:1.80, stake:20, placed:"Nov 8, 14:58", cashout:24.50, live:true}],
   settled:[
     {id:"b2", sel:"Manchester City to win", market:"Match result", match:"Man City 2–1 Arsenal", comp:"Premier League", odds:2.10, stake:10, result:"won", ret:21.00, placed:"Nov 6, 15:02"},
     {id:"b3", sel:"Draw", market:"Match result", match:"Liverpool 2–2 Chelsea", comp:"Premier League", odds:3.40, stake:5, result:"lost", ret:0, placed:"Nov 6, 17:30"},
@@ -1334,6 +1359,41 @@ function tennisGamesPlayed(m){ const t=tennisNow(m); return t.sets.reduce((s,x)=
 function tennisSetsWon(m){ const t=tennisNow(m); return [t.sets.filter(s=>s[0]>s[1]).length, t.sets.filter(s=>s[1]>s[0]).length]; }
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+/* Round 11 (item 4) — EVERY UI icon is an inline SVG (Lucide-style paths),
+   never an emoji or text glyph: on a machine without an emoji font the
+   chrome renders identically. `icon(name)` returns the bare <svg>; callers
+   wrap it in a span.ic / .starbtn / .lb as the layout needs. Filled variants
+   (star on, check) use fill="currentColor". */
+const ICONS = {
+  home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  tv: '<rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>',
+  football: '<circle cx="12" cy="12" r="10"/><path d="M12 7.6 15 9.7 13.9 13.3 10.1 13.3 9 9.7Z"/><path d="M12 7.6V3.6M15 9.7l3.3-1.5M13.9 13.3l1.9 3.3M10.1 13.3l-1.9 3.3M9 9.7 5.7 8.2"/>',
+  tennis: '<circle cx="12" cy="12" r="10"/><path d="M5.2 5.2c3 3.4 3 10.2 0 13.6M18.8 5.2c-3 3.4-3 10.2 0 13.6"/>',
+  basketball: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2v20"/><path d="M5.6 5.6c2.8 2.6 2.8 10.2 0 12.8M18.4 5.6c-2.8 2.6-2.8 10.2 0 12.8"/>',
+  receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
+  waves: '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  flask: '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  xcircle: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>'
+};
+function icon(name, filled){
+  const p = ICONS[name] || '';
+  const fill = filled ? ' fill="currentColor" stroke="none"' : ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  return '<svg class="ic-svg" viewBox="0 0 24 24" aria-hidden="true"' + fill + '>' + p + '</svg>';
+}
+function starIcon(on){ return icon('star', on); }
 const fmt = n => (Math.round(n*100)/100).toFixed(2);
 /* Round 8 (item 2) — no decimal odd may ever be below 1.00 (a stake would
    return less than itself). 1.01 is the floor, enforced at generation
@@ -1732,7 +1792,7 @@ function suspendMarket(matchId, label, ms, forceToast){
   // longer floats a banner naming that match over the page being viewed.
   const onScreen = location.hash === "#/match/"+matchId;
   const inSlip = slip.some(s=>s.matchId===matchId && s.market===label);
-  if(forceToast || onScreen || inSlip) toast("⚠️ Market suspended: "+label+" — "+m.home+" v "+m.away, "err");
+  if(forceToast || onScreen || inSlip) toast("Market suspended: "+label+" — "+m.home+" v "+m.away, "err");
   // Round 3 (item 19): a visible countdown + a manual "Resume now" — the
   // judge no longer has to wait ~15s blind for a suspension to lift.
   const dur = ms||15000;
@@ -1762,18 +1822,18 @@ function suspRemaining(key){
 let failNextBet = false; // armed by the preview button; consumed by placeBets
 function previewMoveOdds(){
   for(let i=0;i<3;i++) tickOdds();
-  toast("📈 Live odds moved — watch the prices flash", "ok");
+  toast("Live odds moved — watch the prices flash", "ok");
 }
 function previewSuspend(){
   const s = slip.find(x=>!x.suspended);
   if(s){ suspendMarket(s.matchId, s.market, 15000, true); return; }
   // No slip selection yet: suspend Match result on the featured match instead.
   suspendMarket(MATCHES[0].id, "Match result", 15000, true);
-  toast("⛔ Match result suspended on Arsenal v Brighton for 15s — open the match page to see it locked", "err");
+  toast("Match result suspended on Arsenal v Brighton for 15s — open the match page to see it locked", "err");
 }
 function previewFailNext(){
   failNextBet = true;
-  toast("💥 Next bet will fail — place a bet to see the failed state", "err");
+  toast("Next bet will fail — place a bet to see the failed state", "err");
   renderSlip();
 }
 function previewOddsChanged(){
@@ -1788,7 +1848,7 @@ function previewOddsChanged(){
   markState("changed");
   clearToastPrefix("Odds accepted"); // Round 4: no stale accept toast beside the new banner
   renderSlip();
-  toast("⚠️ Odds changed on "+s.sel+" — accept the new price before placing", "err");
+  toast("Odds changed on "+s.sel+" — accept the new price before placing", "err");
 }
 // Round 6: judge control — end the featured match NOW so settlement can be
 // demonstrated in seconds. Runs the same FT transition the live clock runs
@@ -1802,7 +1862,7 @@ function jumpToFT(){
   if(!m._ft){ m._ft = true; m._finished = true; delete m._markets; settleMatchBets(m); }
   saveLiveState();
   refreshClocks();
-  toast("⏱️ Full time — "+m.home+" v "+m.away+" ended "+m.hs+"–"+m.as+"; open bets settled", "ok");
+  toast("Full time — "+m.home+" v "+m.away+" ended "+m.hs+"–"+m.as+"; open bets settled", "ok");
   render();
 }
 // Round 9 (item 14) — VOID ANY MATCH (?judge=1 only). The old void only
@@ -1824,7 +1884,7 @@ function voidMatch(id){
     balance = Math.round((balance + b.stake)*100)/100;
   });
   saveAll(); saveLiveState();
-  toast("🚫 Match voided — "+m.home+" v "+m.away+" postponed; "+bets.length+" open bet"+(bets.length===1?"":"s")+" refunded in full", "ok");
+  toast("Match voided — "+m.home+" v "+m.away+" postponed; "+bets.length+" open bet"+(bets.length===1?"":"s")+" refunded in full", "ok");
   render();
 }
 function voidFeaturedMatch(){ voidMatch(MATCHES[0].id); }
@@ -1868,7 +1928,7 @@ function restartFeaturedMatch(){
   applyScoreOdds(m);
   m._markets = marketsFor(m);
   saveLiveState(); saveAll();
-  toast("🔄 Featured match restarted — "+m.home+" v "+m.away+" live again from "+s.minute+"′", "ok");
+  toast("Featured match restarted — "+m.home+" v "+m.away+" live again from "+s.minute+"′", "ok");
   render();
 }
 /* Round 9 (item 3) — JUDGE TRIGGERS (?judge=1 only). The live score
@@ -1886,7 +1946,7 @@ function judgeGoal(id, team){
   m._judgeGoals.push({min, team, scorer});
   syncLiveScore(m); m._markets = marketsFor(m); applyScoreOdds(m);
   saveLiveState(); render();
-  toast("⚽ Goal — "+scorer+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
+  toast("Goal — "+scorer+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
   return true;
 }
 function judgeBasket(id, team, pts){
@@ -1896,7 +1956,7 @@ function judgeBasket(id, team, pts){
   m._judgeBaskets.push({home: team==="home", pts: pts||2});
   syncBbScore(m); m._markets = marketsFor(m);
   saveLiveState(); render();
-  toast("🏀 Basket — "+(team==="home"?m.home:m.away)+" +"+(pts||2)+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
+  toast("Basket — "+(team==="home"?m.home:m.away)+" +"+(pts||2)+" · "+m.home+" "+(m.hs||0)+"–"+(m.as||0)+" "+m.away, "ok");
   return true;
 }
 function previewBoxHTML(){
@@ -1905,20 +1965,20 @@ function previewBoxHTML(){
   // still occur naturally (live tick, suspension, failed bet) without it.
   if(!JUDGE_MODE) return "";
   return `<div class="preview-box">
-    <div class="preview-title">🧪 Prototype — Preview every state</div>
+    <div class="preview-title">${icon('flask')} Prototype — Preview every state</div>
     <div class="preview-sub">Judge controls — these trigger the real states, not screenshots.</div>
     <div class="preview-btns">
-      <button onclick="previewMoveOdds()">📈 Move live odds</button>
-      <button onclick="previewSuspend()">⛔ Suspend selection</button>
-      <button onclick="previewFailNext()" class="${failNextBet?"armed":""}">${failNextBet?"💥 Fail next bet: ARMED":"💥 Fail next bet"}</button>
-      <button onclick="previewOddsChanged()">⚠️ Odds changed</button>
-      <button onclick="jumpToFT()">⏱️ Jump to full time</button>
-      <button onclick="voidFeaturedMatch()">🚫 Void featured match</button>
-      <button onclick="restartFeaturedMatch()">🔄 Restart featured match</button>
-      <button onclick="judgeGoal('m1','home')">⚽ Goal — Arsenal</button>
-      <button onclick="judgeGoal('m1','away')">⚽ Goal — Brighton</button>
-      <button onclick="judgeBasket('m21','home',2)">🏀 Basket — Lakers +2</button>
-      <button onclick="judgeBasket('m21','away',3)">🏀 Basket — Celtics +3</button>
+      <button onclick="previewMoveOdds()">${icon('trend')} Move live odds</button>
+      <button onclick="previewSuspend()">${icon('ban')} Suspend selection</button>
+      <button onclick="previewFailNext()" class="${failNextBet?"armed":""}">${failNextBet?icon('zap')+" Fail next bet: ARMED":icon('zap')+" Fail next bet"}</button>
+      <button onclick="previewOddsChanged()">${icon('alert')} Odds changed</button>
+      <button onclick="jumpToFT()">${icon('timer')} Jump to full time</button>
+      <button onclick="voidFeaturedMatch()">${icon('ban')} Void featured match</button>
+      <button onclick="restartFeaturedMatch()">${icon('rotate')} Restart featured match</button>
+      <button onclick="judgeGoal('m1','home')">${icon('football')} Goal — Arsenal</button>
+      <button onclick="judgeGoal('m1','away')">${icon('football')} Goal — Brighton</button>
+      <button onclick="judgeBasket('m21','home',2)">${icon('basketball')} Basket — Lakers +2</button>
+      <button onclick="judgeBasket('m21','away',3)">${icon('basketball')} Basket — Celtics +3</button>
     </div>
     <div class="states-seen">States seen <b class="st-count">${seenStates.size}/8</b>: ${STATE_LABELS.map(([k,l])=>`<span class="st-chip${seenStates.has(k)?" done":""}" data-state="${k}">${seenStates.has(k)?"✓ ":""}${l}</span>`).join(" ")}</div>
   </div>`;
@@ -1958,7 +2018,7 @@ setTimeout(()=>{
   // page being viewed. The VAR banner itself only renders on that match page.
   const onScreen = location.hash === "#/match/"+m.id;
   const inSlip = slip.some(s=>s.matchId===m.id);
-  if(onScreen || inSlip) toast("📺 VAR check — Match result suspended (Arsenal v Brighton)", "err");
+  if(onScreen || inSlip) toast("VAR check — Match result suspended (Arsenal v Brighton)", "err");
   setTimeout(()=>{ varActive=false; if(location.hash.startsWith("#/match")) render(); }, 20000);
 }, 75000);
 // Live clocks tick every second. Round 5: ONE clock source per match — every
@@ -2239,7 +2299,7 @@ function addToSlip(m, label, sel, odds, suspended){
   // Round 10 (item 2): a finished match sells nothing, in any sport.
   if(isFinished(m) || isDerivedFinished(m)){ toast((m.sport==="Soccer"?"Full time":"Final")+" — betting is closed on this match", "err"); return; }
   if(isVoided(m)){ toast("Postponed — betting is closed on this match", "err"); return; }
-  if(suspended){ toast("⛔ Market suspended — you can't bet on "+label+" right now", "err"); return; }
+  if(suspended){ toast("Market suspended — you can't bet on "+label+" right now", "err"); return; }
   slipMsg=null;
   const key=oddKey(m,label,sel);
   const i=slip.findIndex(s=>s.key===key);
@@ -2256,13 +2316,14 @@ function slipCount(){ return slip.length; }
 function slipTotals(list){
   list = list || slip;
   let stake=0, ret=0;
-  // A suspended selection can't win: its return is 0 and it adds nothing to
-  // the potential return — but its stake stays in the totals (it is still
-  // reserved while the market is suspended; it unblocks on resume).
-  // Round 9 (item 8): when a list is passed (placing the healthy selections
-  // only), the totals cover that list alone — a suspended selection's stake
-  // never blocks a healthy selection.
-  list.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; if(!s.suspended) ret+=st*s.odds; });
+  // Round 11 (item 18): ONE display logic for the return. A suspended
+  // selection's stake is safe and its return (stake × odds) is what it
+  // would pay if the market reopens, so the summary counts it exactly
+  // like the per-item "Return (suspended)" row does — the old code showed
+  // 0.00 in the summary while the row showed the computed value.
+  // (placeBets passes only the selections being placed, so a suspended
+  // selection's stake still never blocks a healthy placement.)
+  list.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; ret+=st*s.odds; });
   return {stake, ret};
 }
 function balanceHTML(){
@@ -2282,9 +2343,9 @@ function acceptOdds(key){
   // slip price for good. The "Odds changed — accept first" toast is no
   // longer actionable once accepted, so clear it (it read as contradicting
   // the "Odds accepted" toast beside it).
-  s.changed=false; s.oldOdds=null; s.accepted=true; slipMsg=null; markState("accepted"); clearToastPrefix("⚠️ Odds changed"); renderSlip(); toast("Odds accepted: "+s.sel+" @ "+fmt(s.odds), "ok");
+  s.changed=false; s.oldOdds=null; s.accepted=true; slipMsg=null; markState("accepted"); clearToastPrefix("Odds changed"); renderSlip(); toast("Odds accepted: "+s.sel+" @ "+fmt(s.odds), "ok");
 }
-function acceptAllOdds(){ slipMsg=null; slip.forEach(s=>{ s.changed=false; s.oldOdds=null; s.accepted=true; }); markState("accepted"); clearToastPrefix("⚠️ Odds changed"); renderSlip(); }
+function acceptAllOdds(){ slipMsg=null; slip.forEach(s=>{ s.changed=false; s.oldOdds=null; s.accepted=true; }); markState("accepted"); clearToastPrefix("Odds changed"); renderSlip(); }
 function removeSlip(key){ slipMsg=null; slip=slip.filter(s=>s.key!==key); renderSlip(); syncOddButtons(); }
 function clearSlip(){ slipMsg=null; slip=[]; renderSlip(); syncOddButtons(); }
 function setStake(key, val, el){
@@ -2319,10 +2380,14 @@ function setStake(key, val, el){
     // with an explicit red message. Never show a negative Balance after.
     const overBal = t.stake > balance;
     const ob=pb.querySelector(".overbal-note");
-    if(ob){ ob.style.display = overBal ? "" : "none"; if(overBal) ob.textContent = "⚠️ Total stake "+fmt(t.stake)+" USDT exceeds your balance of "+fmt(balance)+" USDT — lower a stake or cash out an open bet first."; }
+    if(ob){ ob.style.display = overBal ? "" : "none"; if(overBal) ob.innerHTML = icon('alert')+" Total stake "+fmt(t.stake)+" USDT exceeds your balance of "+fmt(balance)+" USDT — lower a stake or cash out an open bet first."; }
     if(!placing){
       const place=[...pb.querySelectorAll(".placebtn")].find(b=>b.textContent.includes("Place bet"));
-      if(place){ place.textContent="Place bet · "+fmt(t.stake)+" USDT"; place.disabled = overBal; }
+      // Round 11 (item 10): the same disabled rule as the render — total
+      // stake 0, an unaccepted odds change on a staked selection, or a
+      // staked suspended selection.
+      const pd = overBal || t.stake===0 || slip.some(x=>x.changed && parseFloat(x.stake)>0 && !x.suspended) || slip.some(x=>x.suspended && parseFloat(x.stake)>0);
+      if(place){ place.textContent="Place bet · "+fmt(t.stake)+" USDT"; place.disabled = pd; }
     }
     if(overBal) markState("overbal");
   });
@@ -2354,30 +2419,46 @@ function fmtDateTime(ts){
 }
 function placeBets(){
   if(placing) return;
-  if(!slip.length){ showSlipMsg("err","empty","Your slip is empty — tap an odd to add a single."); markState("failed"); return; }
+  if(!slip.length){ showSlipMsg("err","empty","Your slip is empty — tap an odd to add a single."); return; }
   // Round 9 (item 8): ONE rule for suspended selections — a suspended
   // selection can never be placed, but it must not block the healthy
   // selections in the same slip. Split first; every check below runs on
   // the healthy selections only, and the suspended ones stay in the slip.
   const healthy = slip.filter(s=>!s.suspended);
   const susp = slip.filter(s=>s.suspended);
-  const badStake = healthy.find(s=>!(parseFloat(s.stake)>0));
-  if(badStake){ showSlipMsg("err","no-stake"); toast("❌ Bet failed — missing stake", "err"); markState("failed"); return; }
+  // Round 11 (item 9): singles are INDEPENDENT — a selection without a
+  // stake never blocks the others. Only staked, healthy selections are
+  // placed; unstaked ones stay in the slip with the note under Place bet.
+  const toPlace = healthy.filter(s=>parseFloat(s.stake)>0);
+  const noStake = healthy.filter(s=>!(parseFloat(s.stake)>0));
   // Round 4: a match that ended (full time) while its selection sat in the
   // slip can't be placed — the bet is dead, say so plainly.
-  // Round 10 (item 2): any finished match, any sport.
-  const ended = slip.find(s=>{ const mm=MATCHES.find(x=>x.id===s.matchId); return mm && (isFinished(mm) || isDerivedFinished(mm)); });
-  if(ended){ showSlipMsg("err","ended"); toast("❌ Bet failed — that match has ended", "err"); markState("failed"); return; }
-  if(!healthy.length){ showSlipMsg("err","suspended"); toast("❌ Bet failed — selection suspended", "err"); markState("failed"); return; }
-  const chg = healthy.find(s=>s.changed);
-  if(chg){ showSlipMsg("err","odds-changed"); toast("⚠️ Odds changed — accept first", "err"); markState("failed"); return; }
-  const tt=slipTotals(healthy);
-  if(tt.stake > balance){ showSlipMsg("err","insufficient","Bet failed — insufficient balance. Your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("❌ Bet failed — insufficient balance", "err"); markState("failed"); return; }
-  if(failNextBet){ failNextBet=false; showSlipMsg("err","failed","Bet failed — your bet was rejected by the sportsbook (demo). Check your balance and try again."); toast("❌ Bet failed — bet rejected", "err"); markState("failed"); renderSlip(); return; }
+  // Round 10 (item 2): any finished match, any sport. (An ended selection
+  // WITHOUT a stake is not being placed, so it blocks nothing.)
+  const ended = toPlace.find(s=>{ const mm=MATCHES.find(x=>x.id===s.matchId); return mm && (isFinished(mm) || isDerivedFinished(mm)); });
+  if(ended){ showSlipMsg("err","ended"); toast("Bet failed — that match has ended", "err"); markState("failed"); return; }
+  // Round 11 (item 7): nothing placeable is a VALIDATION error, not a
+  // failed placement — no "Bet failed" label, and the "failed" checklist
+  // state is not marked. A suspended-only slip gets the suspended message;
+  // a stake-less slip gets the enter-a-stake message.
+  if(!toPlace.length){
+    if(susp.length){ showSlipMsg("err","suspended"); toast("Selection suspended — remove it or wait for the market to reopen", "err"); }
+    else { showSlipMsg("err","no-stake"); toast("Enter a stake for each single you want to place", "err"); }
+    return;
+  }
+  const chg = toPlace.find(s=>s.changed);
+  if(chg){ showSlipMsg("err","odds-changed"); toast("Odds changed — accept first", "err"); return; }
+  const tt=slipTotals(toPlace);
+  if(tt.stake > balance){ showSlipMsg("err","insufficient","Insufficient balance — your balance is "+fmt(balance)+" USDT but this slip needs "+fmt(tt.stake)+" USDT. Lower a stake or cash out an open bet first."); toast("Insufficient balance", "err"); markState("overbal"); return; }
+  // Round 11 (item 6): the ONE genuine failed placement — the sportsbook
+  // rejects the bet (armed by the judge preview button "Fail next bet").
+  // The message names the reason and the banner carries a Retry button
+  // that retries at the latest odds (see retryFailedBet).
+  if(failNextBet){ failNextBet=false; showSlipMsg("err","failed","Bet couldn't be placed — odds no longer available. Try again"); toast("Bet couldn't be placed — odds no longer available", "err"); markState("failed"); renderSlip(); return; }
   placing=true; renderSlip();
   setTimeout(()=>{
     placing=false;
-    healthy.forEach(s=>{
+    toPlace.forEach(s=>{
       // Round 10 (item 7): placedMs is the numeric recency key for the
       // sidebar's "5 latest bets" — the placed string alone is not
       // reliably sortable across the seeded and fresh bets.
@@ -2387,15 +2468,15 @@ function placeBets(){
       nb.cashout = liveCashout(nb);
       myBets.open.unshift(nb);
     });
-    const n=healthy.length;
+    const n=toPlace.length;
     balance = Math.round((balance - tt.stake)*100)/100; // deduct the placed stake; persists via saveAll
-    slip = susp; saveAll(); syncOddButtons();
+    slip = susp.concat(noStake); saveAll(); syncOddButtons();
     markState("placed");
-    showSlipMsg("ok","placed","✅ Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(tt.stake)+" USDT, potential return "+fmt(tt.ret)+" USDT. See it in My bets → Open."+(susp.length?" "+susp.length+" suspended selection"+(susp.length>1?"s":"")+" stayed in your slip.":""));
+    showSlipMsg("ok","placed","Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(tt.stake)+" USDT, potential return "+fmt(tt.ret)+" USDT. See it in My bets → Open."+(susp.length?" "+susp.length+" suspended selection"+(susp.length>1?"s":"")+" stayed in your slip.":"")+(noStake.length?" "+noStake.length+" selection"+(noStake.length>1?"s":"")+" without a stake stayed in your slip.":""));
     // Round 7 (item 11): the "Bet placed!" banner auto-dismisses after ~5s
     // (and has an X to close it sooner — see renderSlipMsgNodes).
     setTimeout(()=>{ if(slipMsg && slipMsg.key==="placed"){ slipMsg=null; renderSlipMsgNodes(); } }, 5000);
-    toast("✅ Bet placed — good luck!", "ok");
+    toast("Bet placed — good luck!", "ok");
     renderSlip(); renderPanel();
     if(location.hash==="#/bets"){ betTab="open"; render(); }
   }, 900);
@@ -2890,8 +2971,12 @@ function cashOut(id){
   // Round 9 (item 4): cash out is only for a match that is live right now.
   // A pre-match bet has no cash-out value — refuse rather than paying 0.
   if(mmFT && !isLiveNow(mmFT)){ toast("Cash out opens at kickoff — this match hasn't started yet", "err"); return; }
-  if(cashOutSuspended(b)){ toast("⛔ Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
-  const val = liveCashout(b);
+  if(cashOutSuspended(b)){ toast("Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
+  // Round 11 (item 17): the payout is the stored b.cashout — the same
+  // value both surfaces display (refreshed every second) — so the user is
+  // paid exactly what the screen showed, never a fresh recomputation that
+  // drifted a few cents past it.
+  const val = (typeof b.cashout==="number" && b.cashout>0) ? b.cashout : liveCashout(b);
   myBets.open=myBets.open.filter(x=>x.id!==id);
   // If part of this bet was already cashed out, keep that amount on the
   // settled entry so the money trail is complete (total received = part + ret).
@@ -2900,7 +2985,7 @@ function cashOut(id){
   myBets.settled.unshift({id:b.id, sel:b.sel, market:b.market, match:b.match, comp:b.comp, odds:b.odds, stake:b.stake, result:"cashed", ret:val, placed:b.placed, settledMs:Date.now(), settledPhase:"cash", ...(b.partCashed?{partCashed:b.partCashed}:{})});
   balance = Math.round((balance + val)*100)/100; // cash-out returns to the balance
   saveAll(); markState("cashed"); renderSlip(); renderPanel();
-  toast("💰 Cashed out "+fmt(val)+" USDT — "+b.sel, "ok");
+  toast("Cashed out "+fmt(val)+" USDT — "+b.sel, "ok");
   if(location.hash==="#/bets") render();
 }
 // Round 4: PARTIAL cash out (the rival's idea — within the brief: cash out is
@@ -2915,7 +3000,7 @@ function cashOutPartial(id, pct){
   if(mmFT && isFT(mmFT)){ toast("Full time — this bet has already settled", "err"); return; }
   // Round 9 (item 4): no partial cash out before kickoff either.
   if(mmFT && !isLiveNow(mmFT)){ toast("Cash out opens at kickoff — this match hasn't started yet", "err"); return; }
-  if(cashOutSuspended(b)){ toast("⛔ Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
+  if(cashOutSuspended(b)){ toast("Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
   if(pct>=100){ cashOut(id); return; }
   const live = liveCashout(b);
   const paid = Math.round(live * pct/100 * 100)/100;
@@ -2927,7 +3012,7 @@ function cashOutPartial(id, pct){
   b.cashout = liveCashout(b);
   balance = Math.round((balance + paid)*100)/100;
   saveAll(); markState("cashed"); renderSlip(); renderPanel();
-  toast("💰 Cashed out "+fmt(paid)+" USDT ("+pct+"%) — "+fmt(remStake)+" USDT still open at "+fmt(b.odds)+".", "ok");
+  toast("Cashed out "+fmt(paid)+" USDT ("+pct+"%) — "+fmt(remStake)+" USDT still open at "+fmt(b.odds)+".", "ok");
   if(location.hash==="#/bets") render();
 }
 // Cash-out row shared by the Bets-page open cards and the panel's top-2 open
@@ -2941,9 +3026,14 @@ function cashOutRowHTML(b){
   if(m && !isLiveNow(m) && !isFinished(m)){
     return `<div class="foot"><span class="small muted">Cash out opens at kickoff</span></div>`;
   }
-  const val = liveCashout(b);
+  // Round 11 (item 17): ONE cash-out value — the stored b.cashout, which
+  // the 1s refresh updates for every open bet in a single pass. The old
+  // code recomputed liveCashout(b) fresh at render time, so the My bets
+  // page and the side panel (rendered seconds apart, across a minute
+  // rollover) showed different values for the same bet (26.67 vs 26.87).
+  const val = (typeof b.cashout==="number" && b.cashout>0) ? b.cashout : liveCashout(b);
   return `<div class="foot"><span class="co-val">Cash out <b data-co-bet="${b.id}">${fmt(val)} USDT</b></span><button class="cobtn" ${susp?"disabled style='opacity:.45;cursor:not-allowed'":""} onclick="cashOut('${b.id}')">Cash out</button></div>
-  ${susp?`<div class="small" style="color:var(--red);font-weight:700;margin-top:6px">⛔ Cash out paused — “${esc(b.market)}” is suspended on this match.</div>`:""}
+  ${susp?`<div class="small" style="color:var(--red);font-weight:700;margin-top:6px">${icon('ban')} Cash out paused — “${esc(b.market)}” is suspended on this match.</div>`:""}
   <div class="co-part"><span class="small muted">Partial cash out:</span> ${[25,50,75].map(p=>`<button class="copct" ${susp?"disabled style='opacity:.45;cursor:not-allowed'":""} onclick="cashOutPartial('${b.id}',${p})">${p}%</button>`).join(" ")}</div>
   ${b.partCashed?`<div class="small" style="color:var(--mint);font-weight:700;margin-top:6px">Part-cashed ${fmt(b.partCashed)} USDT — ${fmt(b.stake)} USDT still open at ${fmt(b.odds)}</div>`:""}`;
 }
@@ -2952,15 +3042,19 @@ function cashOutRowHTML(b){
 // Round 9 (item 2): the stored b.cashout is refreshed too, so the value a
 // cash-out pays and the value the bet carries always agree.
 function refreshCashoutDisplays(){
-  $$("[data-co-bet]").forEach(el=>{
-    const b = myBets.open.find(x=>x.id===el.dataset.coBet);
-    if(!b) return;
-    el.textContent = fmt(liveCashout(b))+" USDT";
-  });
+  // Round 11 (item 17): compute each open bet's cash-out ONCE per pass,
+  // store it, then write that same stored value into every [data-co-bet]
+  // span (My bets page and side panel) — the two surfaces can never
+  // disagree, because they never compute separately.
   for(const b of myBets.open){
     const v = liveCashout(b);
     if(v > 0) b.cashout = v;
   }
+  $$("[data-co-bet]").forEach(el=>{
+    const b = myBets.open.find(x=>x.id===el.dataset.coBet);
+    if(!b || typeof b.cashout!=="number") return;
+    el.textContent = fmt(b.cashout)+" USDT";
+  });
 }
 function showSlipMsg(kind, key, msg){
   slipMsg = {kind, key, msg: msg || ""};
@@ -2982,19 +3076,37 @@ function slipMsgText(){
   if(slipMsg.key==="suspended"){
     const s = slip.find(x=>x.suspended);
     if(!s) return "";
-    return "Bet failed — “"+s.sel+"” ("+s.market+") is suspended. Remove it or wait for the market to reopen.";
+    // Round 11 (item 7): a suspended selection is a validation error, not
+    // a failed placement — it is never labelled "Bet failed".
+    return "“"+s.sel+"” ("+s.market+") is suspended — remove it or wait for the market to reopen.";
   }
   if(slipMsg.key==="no-stake"){
     const s = slip.find(x=>!(parseFloat(x.stake)>0));
     if(!s) return "";
-    return "Bet failed — enter a stake (USDT) for “"+s.sel+"”. Stakes of 0 can't be placed.";
+    // Round 11 (item 7): the empty-stake label is the instruction, not "Bet failed".
+    return "Enter a stake for each single you want to place — “"+s.sel+"” has no stake yet. It stays in your slip.";
   }
   if(slipMsg.key==="ended"){
-    const s = slip.find(x=>{ const mm=MATCHES.find(y=>y.id===x.matchId); return mm && isFT(mm); });
+    const s = slip.find(x=>{ const mm=MATCHES.find(y=>y.id===x.matchId); return mm && (isFinished(mm) || isDerivedFinished(mm)); });
     if(!s) return "";
     return "Bet failed — “"+s.sel+"” can't be placed: that match has ended (full time). Remove it to place the rest.";
   }
   return slipMsg.msg||"";
+}
+/* Round 11 (item 6): the slip banner's inner HTML — a genuinely failed
+   placement (key "failed") carries a Retry button that retries at the
+   latest odds. Used by renderSlipMsgNodes and both inline slip-msg renders. */
+function slipMsgInnerHTML(){
+  if(!slipMsg || !slipMsg.msg) return "";
+  return `<span>${esc(slipMsg.msg)}</span>${slipMsg.key==="failed"?`<button class="retrybtn" onclick="retryFailedBet()">Retry</button>`:""}<button class="slip-msg-x" onclick="clearSlipMsg()" aria-label="Dismiss">✕</button>`;
+}
+/* Round 11 (item 6): retry a genuinely failed placement at the LATEST odds —
+   accept any price that moved since the failure (the retry pays the current
+   price, not the frozen one), then place again. */
+function retryFailedBet(){
+  slip.forEach(s=>{ if(s.changed && !s.suspended){ s.changed=false; s.oldOdds=null; s.accepted=true; } });
+  slipMsg=null;
+  placeBets();
 }
 function syncSlipMsg(){
   // Recompute the stored text from live state; drop the message entirely
@@ -3009,7 +3121,7 @@ function renderSlipMsgNodes(){
       el.className = "slip-msg slip-" + slipMsg.kind + " show";
       // Round 7 (item 11): an X to close the banner sooner (it also
       // auto-dismisses after ~5s for the "Bet placed!" message).
-      el.innerHTML = `<span>${esc(slipMsg.msg)}</span><button class="slip-msg-x" onclick="clearSlipMsg()" aria-label="Dismiss">✕</button>`;
+      el.innerHTML = slipMsgInnerHTML();
     } else {
       el.className = "slip-msg";
       el.textContent = "";
@@ -3058,8 +3170,8 @@ function resetDemo(){
 /* ================= Shared render: slip (panel + sheet + bets page) ================= */
 function slipHTML(){
   if(!slip.length){
-    return `${balanceHTML()}<div class="slip-empty"><div class="big">🧾</div>Your bet slip is empty.<br>Tap any odd to add a single.<br><span class="small">Singles only — no multis, no bet builder.</span></div>
-    ${slipMsg?`<div class="slip-msg slip-${slipMsg.kind} show"><span>${esc(slipMsg.msg)}</span><button class="slip-msg-x" onclick="clearSlipMsg()" aria-label="Dismiss">✕</button></div>`:""}
+    return `${balanceHTML()}<div class="slip-empty"><div class="big">${icon('receipt')}</div>Your bet slip is empty.<br>Tap any odd to add a single.<br><span class="small">Singles only — no multis, no bet builder.</span></div>
+    ${slipMsg?`<div class="slip-msg slip-${slipMsg.kind} show">${slipMsgInnerHTML()}</div>`:""}
     ${previewBoxHTML()}`;
   }
   const t=slipTotals();
@@ -3069,6 +3181,13 @@ function slipHTML(){
   // Round 4: upfront balance validation — the total stake passing the balance
   // disables Place from the start (not just failing at submit).
   const overBal = t.stake > balance;
+  // Round 11 (item 10): the Place button is genuinely disabled (grey +
+  // disabled attribute) when there is nothing placeable: total stake 0,
+  // an unaccepted odds change on a selection that IS being placed (only
+  // Accept / "Accept all new odds" is active then), or a suspended
+  // selection that has a stake. An unstaked selection's drift blocks
+  // nothing — it is not being placed (same rule as placeBets).
+  const placeDisabled = placing || overBal || t.stake===0 || slip.some(s=>s.changed && parseFloat(s.stake)>0 && !s.suspended) || slip.some(s=>s.suspended && parseFloat(s.stake)>0);
   return slip.map(s=>{
     const sk = marketKey(s.matchId, s.market);
     const srem = s.suspended ? suspRemaining(sk) : null;
@@ -3080,13 +3199,13 @@ function slipHTML(){
       </div>
       <div class="oddsrow">
         <span class="odds-pill">@ ${fmt(s.odds)}</span>
-        <label class="stake"><span>USDT</span><input type="text" inputmode="decimal" placeholder="Stake" value="${esc(s.stake)}" oninput="setStake('${s.key}', this.value, this)" onblur="if(window._pendingSlipRender){window._pendingSlipRender=false;renderSlip();}"></label>
+        <label class="stake"><span>Stake (USDT)</span><input type="text" inputmode="decimal" placeholder="Stake" value="${esc(s.stake)}" oninput="setStake('${s.key}', this.value, this)" onblur="if(window._pendingSlipRender){window._pendingSlipRender=false;renderSlip();}"></label>
       </div>
       <div class="chips">${[1,10,50,100].map(v=>`<button class="chip ${+s.stake===v?"on":""}" data-v="${v}" onclick="setChip('${s.key}',${v})">${v}</button>`).join("")}</div>
-      ${s.changed?`<div class="odds-changed">⚠️ Odds changed ${fmt(s.oldOdds)} → ${fmt(s.odds)}<button onclick="acceptOdds('${s.key}')">Accept</button></div>`:""}
-      ${s.accepted?`<div class="small" style="color:var(--mint);font-weight:700;margin-top:6px">🔒 Price frozen at ${fmt(s.odds)} — live moves won't change it.</div>`:""}
-      ${s.suspended?`<div class="susp-note">⛔ Suspended — can't be placed right now${srem!==null?` · reopens in <span data-susp-count="${sk}">${srem}s</span><button onclick="unsuspendMarket('${sk}')" style="margin-left:auto;background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
-      <div class="ret"><span>${s.suspended?"Return (suspended)":"Potential return"}</span><b>${s.suspended?"0.00":fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
+      ${s.changed?`<div class="odds-changed">${icon('alert')} Odds changed ${fmt(s.oldOdds)} → ${fmt(s.odds)}<button onclick="acceptOdds('${s.key}')">Accept</button></div>`:""}
+      ${s.accepted?`<div class="small" style="color:var(--mint);font-weight:700;margin-top:6px">${icon('lock')} Price frozen at ${fmt(s.odds)} — live moves won't change it.</div>`:""}
+      ${s.suspended?`<div class="susp-note">${icon('ban')} Suspended — can't be placed right now${srem!==null?` · reopens in <span data-susp-count="${sk}">${srem}s</span><button onclick="unsuspendMarket('${sk}')" style="margin-left:auto;background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
+      <div class="ret"><span>${s.suspended?"Return (suspended)":"Potential return"}</span><b>${fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
     </div>`;
   }).join("")
   + `<div class="placebar">
@@ -3095,10 +3214,10 @@ function slipHTML(){
       <div class="tot"><span>Potential return</span><b>${fmt(t.ret)} USDT</b></div>
       <div class="bal-line after"><span>Balance after</span><b class="bal-after-val">${fmtC(Math.max(0, balance - t.stake))} USDT</b></div>
       <div class="nostake-note small muted" style="margin:0 0 8px;${noStake?"":"display:none"}">Selections without a stake are not counted in the totals and can't be placed — enter a stake for each single.</div>
-      <div class="overbal-note" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:8px;${overBal?"":"display:none"}">⚠️ Total stake ${fmt(t.stake)} USDT exceeds your balance of ${fmt(balance)} USDT — lower a stake or cash out an open bet first.</div>
+      <div class="overbal-note" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:8px;${overBal?"":"display:none"}">${icon('alert')} Total stake ${fmt(t.stake)} USDT exceeds your balance of ${fmt(balance)} USDT — lower a stake or cash out an open bet first.</div>
       ${slip.some(s=>s.changed)?`<button class="placebtn" style="background:var(--amber);color:#241a02;margin-bottom:8px" onclick="acceptAllOdds()">Accept all new odds</button>`:""}
-      <button class="placebtn ${placing?"busy":""}" ${placing||overBal?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
-      <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsg?`<span>${esc(slipMsg.msg)}</span><button class="slip-msg-x" onclick="clearSlipMsg()" aria-label="Dismiss">✕</button>`:""}</div>
+      <button class="placebtn ${placing?"busy":""}" ${placeDisabled?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
+      <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsgInnerHTML()}</div>
       <div class="singles-note">Singles only · Decimal odds · Stakes in USDT · Demo data — no real money</div>
     </div>
   ${previewBoxHTML()}`;
@@ -3111,7 +3230,7 @@ function slipHTML(){
 function betSuspNoteHTML(b){
   const m = matchOfBet(b);
   if(!m || !isSuspended(m, b.market)) return "";
-  return `<div class="susp-note">⛔ Market suspended: ${esc(b.market)} — “${esc(b.sel)}”</div>`;
+  return `<div class="susp-note">${icon('ban')} Market suspended: ${esc(b.market)} — “${esc(b.sel)}”</div>`;
 }
 function betStatusLabel(b){
   // Round 9 (item 1): the bet card's status follows the MATCH's status —
@@ -3244,15 +3363,20 @@ function oddsBtn(m, label, opt, extraCls){
   const susp = opt.suspended || isSuspended(m,label);
   const inSlip = slip.some(s=>s.key===oddKey(m,label,opt.n));
   return `<button class="odds${inSlip?" sel":""}${susp?" locked":""}${extraCls||""}" data-odd-key="${esc(oddKey(m,label,opt.n))}" onclick="event.stopPropagation();addToSlip(MATCHES.find(x=>x.id==='${m.id}'), '${esc(label)}', '${esc(opt.n)}', ${opt.odds}, ${susp})">
-    <span class="lb">${esc(opt.n)}${susp?" 🔒":""}</span><span class="vl">${susp?"—":fmt(opt.odds)}</span></button>`;
+    <span class="lb">${esc(opt.n)}${susp?" "+icon('lock'):""}</span><span class="vl">${susp?"—":fmt(opt.odds)}</span></button>`;
 }
 function rowOdds(m, mode){
   const resLabel = m.sport==="Soccer" ? "Match result" : "Match winner";
   if(!mode || mode==="1x2" || m.sport!=="Soccer"){
+    // Round 11 (item 12): ONE source of odds — the cached market list
+    // (currentOdds), never the m.odds snapshot. The list, the match page,
+    // search and the slip all read the same _markets, so the same selection
+    // can never show two prices at once. m.odds is only the fallback when
+    // the market is missing (never for a live/upcoming match).
     return [
-      oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h}),
-      m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):"",
-      oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})
+      oddsBtn(m,resLabel,{n:m.home,odds:currentOdds(m,resLabel,m.home, m.odds.h)}),
+      m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:currentOdds(m,resLabel,"Draw", m.odds.d)}):"",
+      oddsBtn(m,resLabel,{n:m.away,odds:currentOdds(m,resLabel,m.away, m.odds.a)})
     ].filter(Boolean);
   }
   // Football page market switcher: the 3 columns really change to that market's
@@ -3344,11 +3468,35 @@ function isDerivedFinished(m){
   if(m.sport==="Tennis") return startedTennis(m).over;
   return false;
 }
+// Round 11 (item 11): one "ended" predicate for every Full time list.
+// isFT/isFinished require status==="live", so they miss a match whose
+// kickoff passed and whose derived clock ran out (isDerivedFinished) —
+// those matches vanished from every Full time list (Home, Live, Football,
+// "Your matches") while being excluded from Starting soon too.
+function isEnded(m){ return isFT(m) || isFinished(m) || isDerivedFinished(m); }
 /* Round 10 (item 9) — the Match stats counts for ANY soccer match page:
    a started match derives them from its hash schedule (the same counts
    the live engine produces), a live/FT match uses its stored counts. */
 function matchCorners(m){ if(isStarted(m)) return startedInfo(m).corners; return m.corners||0; }
 function matchCards(m){ if(isStarted(m)) return startedInfo(m).cards; return m.cards||0; }
+/* Round 11 (item 11): ONE grouping rule for every list — a match is Live
+   (in play now), Started (kickoff passed, not live, not finished), Starting
+   soon (kickoff still in the future) or Full time (finished). The old code
+   grouped by the stored status only, so Full-time matches sat in
+   "Starting soon" on Home and in undifferentiated Football lists. Each
+   group renders only when it has rows. */
+function groupRowsHTML(list, showMore, mode){
+  const live = list.filter(m=>isLiveNow(m));
+  const fin = list.filter(m=>isEnded(m));
+  const started = list.filter(m=>!isLiveNow(m) && !isEnded(m) && isStarted(m));
+  const soon = list.filter(m=>!isLiveNow(m) && !isEnded(m) && !isStarted(m));
+  let h = "";
+  if(live.length) h += `<div class="group-label">Live · ${live.length} live</div><div class="card">${live.map(m=>matchRow(m, showMore, mode)).join("")}</div>`;
+  if(started.length) h += `<div class="group-label">Started</div><div class="card">${started.map(m=>matchRow(m, showMore, mode)).join("")}</div>`;
+  if(soon.length) h += `<div class="group-label">Starting soon</div><div class="card">${soon.map(m=>matchRow(m, showMore, mode)).join("")}</div>`;
+  if(fin.length) h += `<div class="group-label">Full time · ${fin.length} finished</div><div class="card">${fin.map(m=>matchRow(m, showMore, mode)).join("")}</div>`;
+  return h;
+}
 function matchRow(m, showMore, mode){
   const ft = isFT(m);
   const live = isLiveNow(m);
@@ -3376,12 +3524,17 @@ function matchRow(m, showMore, mode){
   // its kickoff time. When its sets are done the row says "Final" with the
   // sets won — the old row said "Started" with the score "–––".
   const stT = (started && m.sport==="Tennis") ? startedTennis(m) : null;
+  // Round 11 (item 11): a derived-finished match is Full time / Final in
+  // the row's "when" slot too — the old code said "Started · 90′" there
+  // even though the row already showed the final score + Full time label.
+  const derivedFin = isDerivedFinished(m);
   const when = voided ? `<span class="live-badge" style="background:var(--muted2)">Postponed</span>`
     : ft ? `<span class="live-badge" style="background:var(--muted2)">FT</span>`
     : fin ? `<span class="live-badge" style="background:var(--muted2)">Final</span>`
     : live ? liveWhen
-    : started ? (m.sport==="Soccer" ? `<b>Started · ${st.min}′</b><span class="small muted"> · ${esc(m.time)} WIB</span>${m.date}` : m.sport==="Tennis" ? (stT.over ? `<span class="live-badge" style="background:var(--muted2)">Final</span>` : `<b>Set ${stT.sets.length+1} · ${stT.games[0]}–${stT.games[1]}</b>${m.date}`) : `<b>${esc(ko.startedLabel||"Started")}</b>${m.date}`)
-    : `<b>${ko.label}</b>${m.date}`;
+    : derivedFin ? (m.sport==="Soccer" ? `<span class="live-badge" style="background:var(--muted2)">Full time</span>` : `<span class="live-badge" style="background:var(--muted2)">Final</span>`)
+    : started ? (m.sport==="Soccer" ? `<b>Started · ${st.min}′</b><span class="small muted"> · ${esc(m.time)} WIB</span> · ${esc(m.date)}` : m.sport==="Tennis" ? (stT.over ? `<span class="live-badge" style="background:var(--muted2)">Final</span>` : `<b>Set ${stT.sets.length+1} · ${stT.games[0]}–${stT.games[1]}</b> · ${esc(m.date)}`) : `<b>${esc(ko.startedLabel||"Started")}</b> · ${esc(m.date)}`)
+    : `<b>${ko.label}</b> · ${esc(m.date)}`;
   const score = (live || ft || fin) ? `<span class="sc">${m.hs}</span>` : (started && m.sport==="Soccer") ? `<span class="sc">${st.hs}</span>` : (stT) ? `<span class="sc">${stT.sets.filter(s=>s[0]>s[1]).length}</span>` : "";
   const score2 = (live || ft || fin) ? `<span class="sc">${m.as}</span>` : (started && m.sport==="Soccer") ? `<span class="sc">${st.as}</span>` : (stT) ? `<span class="sc">${stT.sets.filter(s=>s[1]>s[0]).length}</span>` : "";
   // Truthful "+N": the number of OTHER markets on this match's page (total
@@ -3390,9 +3543,8 @@ function matchRow(m, showMore, mode){
   const totalMk=Object.values(m._markets).flat().length;
   // Round 10 (item 2): a finished match (including derived-FT) has no
   // "+N" and no odds buttons — it shows its final label, like FT/Final.
-  const derivedFin = isDerivedFinished(m);
   const more = (ft || voided || fin || derivedFin) ? "" : (showMore===false ? "" : `<span class="mrow-more">+${Math.max(0,totalMk-1)} ›</span>`);
-  const star = `<button class="starbtn ${follows.teams.includes(m.home)?"on":""}" onclick="event.stopPropagation();toggleFollowTeam('${esc(m.home)}')" title="Follow ${esc(m.home)}">★</button>`;
+  const star = `<button class="starbtn ${follows.teams.includes(m.home)?"on":""}" onclick="event.stopPropagation();toggleFollowTeam('${esc(m.home)}')" title="Follow ${esc(m.home)}">${starIcon(follows.teams.includes(m.home))}</button>`;
   return `<div class="mrow" onclick="go('#/match/${m.id}')">
     <div class="when">${when}</div>
     <div class="teams">
@@ -3438,9 +3590,9 @@ function featCard(m){
     :fin?`<div class="muted small" style="font-weight:700">Final — ${m.hs}–${m.as}</div>`
     :ht?`<div class="muted small" style="font-weight:700">Half time — odds paused</div>`
     :`<div class="odds-grid">
-      ${oddsBtn(m,resLabel,{n:m.home,odds:m.odds.h})}
-      ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:m.odds.d}):""}
-      ${oddsBtn(m,resLabel,{n:m.away,odds:m.odds.a})}
+      ${oddsBtn(m,resLabel,{n:m.home,odds:currentOdds(m,resLabel,m.home, m.odds.h)})}
+      ${m.odds.d?oddsBtn(m,resLabel,{n:"Draw",odds:currentOdds(m,resLabel,"Draw", m.odds.d)}):""}
+      ${oddsBtn(m,resLabel,{n:m.away,odds:currentOdds(m,resLabel,m.away, m.odds.a)})}
     </div>`}
   </div>`;
 }
@@ -3457,7 +3609,7 @@ function toggleFollowComp(c){
   saveAll(); render();
 }
 function sportNavHTML(active){
-  const chips=[["Home","🏠","#/home"],["Live "+liveCountNow(),"📺","#/live"],["Soccer","⚽","#/football"],["Tennis","🎾","#/live?sport=Tennis"],["Basketball","🏀","#/live?sport=Basketball"]];
+  const chips=[["Home",icon("home"),"#/home"],["Live "+liveCountNow(),icon("tv"),"#/live"],["Football",icon("football"),"#/football"],["Tennis",icon("tennis"),"#/live?sport=Tennis"],["Basketball",icon("basketball"),"#/live?sport=Basketball"]];
   return `<div class="sportnav">${chips.map(([label,ic,href])=>{
     const isLive = label.startsWith("Live");
     const act = href==="#/live" ? "goLive()" : `go('${href}')`;
@@ -3465,9 +3617,9 @@ function sportNavHTML(active){
   }).join("")}</div>`;
 }
 function liveMeta(m){ // short live label for search results — never a minute for tennis
-  if(m.sport==="Tennis") return "🔴 Live · Set "+(tennisNow(m).sets.length+1);
-  if(m.sport==="Basketball") return "🔴 Live · "+bbLabel(m);
-  return "🔴 Live "+curMin(m)+"′";
+  if(m.sport==="Tennis") return "<span class='livedot'></span> Live · Set "+(tennisNow(m).sets.length+1);
+  if(m.sport==="Basketball") return "<span class='livedot'></span> Live · "+bbLabel(m);
+  return "<span class='livedot'></span> Live "+curMin(m)+"′";
 }
 function searchResultsHTML(q){
   q=q.trim().toLowerCase(); if(q.length<2) return "";
@@ -3520,13 +3672,13 @@ function searchResultsHTML(q){
     return aliases.some(a=>a.includes(q) || q.includes(a));
   });
   if(!teams.length&&!comps.length&&!players.length&&!markets.length&&!matches.length&&!oddsItems.length)
-    return `<div class="search-results"><div class="empty card"><div class="big">🔍</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
+    return `<div class="search-results"><div class="empty card"><div class="big">${icon('search')}</div><h3>No results for “${esc(q)}”</h3><p>Try a team, player, competition or market.</p></div></div>`;
   let h=`<div class="search-results">`;
   if(matches.length){ h+=`<div class="sr-group">Matches</div>`+matches.slice(0,4).map(m=>{ const ko=kickoffInfo(m); return `<button class="sr-item" onclick="go('#/match/${m.id}')"><span class="tag">Match</span><span class="nm">${esc(m.home)} v ${esc(m.away)}</span><span class="meta">${isVoided(m)?"Postponed":isLiveNow(m)?liveMeta(m):isFT(m)?"Full time":isFinished(m)?"Final":ko.past?"Started":esc(m.date)+" "+ko.label} · ${esc(m.comp)}</span></button>`; }).join(""); }
   if(oddsItems.length){ h+=`<div class="sr-group">Odds</div>`+oddsItems.slice(0,6).map(o=>`<button class="sr-item" onclick="goMatch('${o.matchId}')"><span class="tag">Odds</span><span class="nm" data-odd-key="${esc(o.key)}">${esc(o.sel)} @ <span class="vl">${fmt(o.odds)}</span></span><span class="meta">${esc(o.sub)}</span></button>`).join(""); }
-  if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · 🔴 Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
+  if(teams.length){ h+=`<div class="sr-group">Teams</div>`+teams.slice(0,4).map(t=>{ const tm=firstMatchForTeam(t); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Team</span><span class="nm">${crest(t)} ${esc(t)}</span><span class="meta">${tm?esc(tm.home)+" v "+esc(tm.away)+(tm.status==="live"?" · <span class='livedot'></span> Live":" · "+esc(tm.date)+" "+tm.time):"Follow to add to Favourites"}</span></button>`; }).join(""); }
   if(players.length){ h+=`<div class="sr-group">Players</div>`+players.map(p=>{ const tm=firstMatchForTeam(PLAYER_TEAM[p]||""); return `<button class="sr-item" onclick="go('#/match/${tm?tm.id:MATCHES[0].id}')"><span class="tag">Player</span><span class="nm">${esc(p)}</span><span class="meta">${PLAYER_TEAM[p]?esc(PLAYER_TEAM[p])+" · goalscorer markets":"Goalscorer markets"}</span></button>`; }).join(""); }
-  if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">🏆 ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
+  if(comps.length){ h+=`<div class="sr-group">Competitions</div>`+comps.map(c=>`<button class="sr-item" onclick="footComp='${esc(c)}';go('#/football')"><span class="tag">League</span><span class="nm">${icon('trophy')} ${esc(c)}</span><span class="meta">${MATCHES.filter(m=>m.comp===c).length} matches</span></button>`).join(""); }
   // Round 9 (item 11): a market search returns ALL matches that have the
   // market — the old 6-result cap showed only the first 2 matches for
   // "BTTS" even though 18 have it.
@@ -3543,46 +3695,48 @@ function pageHome(){
   const yourMatches = MATCHES.filter(m=>favTeams.includes(m.home) || favTeams.includes(m.away) || favComps.includes(m.comp)).slice(0,6);
   const liveNow = MATCHES.filter(isLiveNow);
   const featured = MATCHES.filter(m=>m.featured);
-  const upcoming = MATCHES.filter(m=>m.status==="upcoming").slice(0,6);
+  // Round 11 (item 11): "Starting soon" is ONLY matches whose kickoff is
+  // still in the future — a Full-time match never sits here again. Finished
+  // matches get their own section below.
+  const upcoming = MATCHES.filter(m=>m.status==="upcoming" && !isStarted(m)).slice(0,6);
+  const finishedHome = MATCHES.filter(isEnded);
   return `
-  <div class="searchbar"><input id="homeSearch" type="text" placeholder="Search teams, players or leagues" value="${esc(searchQ)}" oninput="setSearchQ(this.value, this)"></div>
   <div id="searchOut">${searchResultsHTML(searchQ)}</div>
   ${sportNavHTML("Home")}
   <div class="sec-head"><h2>Live now <span class="sub">${liveNow.length} live</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
-  <div class="card">${liveNow.slice(0,4).map(m=>matchRow(m)).join("")}</div>
-  <div class="sec-head"><h2>Favourites</h2><span class="small muted">Tap ★ on any team or competition to follow it</span></div>
+  <div class="card">${liveNow.map(m=>matchRow(m)).join("")}</div>
+  <div class="sec-head"><h2>Favourites</h2><span class="small muted">Tap ${starIcon(false)} on any team or competition to follow it</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    ${favComps.map(c=>`<span class="pill"><span class="dot"></span>⭐ ${esc(c)} <button class="x" onclick="toggleFollowComp('${esc(c)}')">✕</button></span>`).join("")}
+    ${favComps.map(c=>`<span class="pill"><span class="dot"></span>${starIcon(true)} ${esc(c)} <button class="x" onclick="toggleFollowComp('${esc(c)}')">✕</button></span>`).join("")}
     ${favTeams.map(t=>`<span class="pill">${crest(t)} ${esc(t)} <button class="x" onclick="toggleFollowTeam('${esc(t)}')">✕</button></span>`).join("")}
     ${!favComps.length&&!favTeams.length?'<span class="muted small">Nothing followed yet.</span>':""}
   </div>
   <div class="sec-head"><h2>Your matches <span class="sub">${yourMatches.length} matches</span></h2><a href="#/live" onclick="goLive()">See all live ›</a></div>
-  <div class="card">${yourMatches.length?yourMatches.map(m=>matchRow(m)).join(""):'<div class="slip-empty">Nothing followed yet — tap ★ on a team or a competition to see its matches here.</div>'}</div>
+  ${yourMatches.length?groupRowsHTML(yourMatches):'<div class="card"><div class="slip-empty">Nothing followed yet — tap ${starIcon(false)} on a team or a competition to see its matches here.</div></div>'}
   <div class="sec-head"><h2>Top competitions</h2><a href="#/football">All football ›</a></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    ${COMPS.map(c=>{ const n=MATCHES.filter(m=>m.comp===c).length; const fol=follows.comps.includes(c); return `<button class="pill" onclick="footComp='${esc(c)}';go('#/football')"><span class="dot"></span>🏆 ${esc(c)} · ${n} matches <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${fol?"★":"☆"}</span></button>`; }).join("")}
+    ${COMPS.map(c=>{ const n=MATCHES.filter(m=>m.comp===c).length; const fol=follows.comps.includes(c); return `<button class="pill" onclick="footComp='${esc(c)}';go('#/football')"><span class="dot"></span>${icon('trophy')} ${esc(c)} · ${n} matches <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${starIcon(fol)}</span></button>`; }).join("")}
   </div>
   <div class="sec-head"><h2>Featured matches</h2><a href="#/football">All football ›</a></div>
   <div class="feat-grid">${featured.map(featCard).join("")}</div>
   <div class="sec-head"><h2>Starting soon</h2></div>
   <div class="card">${upcoming.map(m=>matchRow(m)).join("")}</div>
+  ${finishedHome.length?`<div class="sec-head"><h2>Full time</h2></div><div class="card">${finishedHome.slice(0,6).map(m=>matchRow(m)).join("")}</div>`:""}
   <div class="footer-note"><span class="badge-demo">Demo prototype</span> &nbsp;Sample fixtures and odds only — no real players, no real money, no wallet connection. Built for the Housebets Sportsbook design contest.</div>`;
 }
 function renderSearch(){
   const o=$("#searchOut"); if(o) o.innerHTML=searchResultsHTML(searchQ);
-  // Round 7 (item 14): keep the two search boxes in sync (except the one
-  // being typed in, so the caret never jumps).
-  const t=$("#topSearch"), h=$("#homeSearch");
+  // Round 11 (item 15): ONE search box — the top bar. The old home box is
+  // gone, so there is no second input to sync and no render race that
+  // scrambles typing ("Arsenal" → "nalArse").
+  const t=$("#topSearch");
   if(t && document.activeElement!==t) t.value = searchQ;
-  if(h && document.activeElement!==h) h.value = searchQ;
 }
-// Round 7 (item 14): ONE shared search state. The header box and the home
-// box are two views of the same query — typing in either updates the other.
+// Round 11 (item 15): ONE shared search state, ONE box (the top bar).
 function setSearchQ(v, fromEl){
   searchQ = v;
-  const t = $("#topSearch"), h = $("#homeSearch");
+  const t = $("#topSearch");
   if(t && t!==fromEl) t.value = v;
-  if(h && h!==fromEl) h.value = v;
   renderSearch();
 }
 
@@ -3603,7 +3757,7 @@ function pageLive(){
     if(qsSport) liveFilter.comp = "All"; // a sport link is a fresh sport view, not a comp-filtered one
   }
   const live=MATCHES.filter(isLiveNow);
-  const finished=MATCHES.filter(isFinished); // Round 4: ended matches leave the live list but stay visible as Full time (soccer FT, basketball/tennis Final)
+  const finished=MATCHES.filter(isEnded); // Round 4: ended matches leave the live list but stay visible as Full time (soccer FT, basketball/tennis Final) — Round 11: includes derived-finished matches
   const filtered=live.filter(m=>(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp));
   // Round 9 (item 13): the FULL TIME section follows the active sport /
   // competition filter too — the old code always showed every finished
@@ -3614,14 +3768,19 @@ function pageLive(){
   // with nothing live (Champions League: 5 upcoming, 0 live) and the chip
   // never came back, even after Reset.
   const comps=[...new Set(MATCHES.filter(m=>liveFilter.sport==="All"||m.sport===liveFilter.sport).map(m=>m.comp))];
+  // Round 11 (item 22): the "where" for the nothing-live title — the
+  // competition when one is picked, else the sport ("Football", not the
+  // internal "Soccer"), else "this view".
+  const where = liveFilter.comp!=="All" ? liveFilter.comp : (liveFilter.sport==="All"?"this view":(liveFilter.sport==="Soccer"?"Football":liveFilter.sport));
   let body="";
   if(!filtered.length){
     // Round 5: the Starting-soon fallback must never be an empty list when
     // upcoming matches exist for the sport — relax the comp filter first.
-    const soonStrict=MATCHES.filter(m=>m.status==="upcoming"&&(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp)).slice(0,6);
-    const soon=soonStrict.length?soonStrict:MATCHES.filter(m=>m.status==="upcoming"&&(liveFilter.sport==="All"||m.sport===liveFilter.sport)).slice(0,6);
-    const where = liveFilter.comp!=="All" ? liveFilter.comp : (liveFilter.sport==="All"?"this view":liveFilter.sport);
-    body=`<div class="card empty"><div class="big">📺</div><h3>Nothing live in ${esc(where)} — starting soon instead</h3><p>These matches are starting soon instead.</p></div>
+    // Round 11 (item 11): only matches whose kickoff is still in the
+    // future — a Full-time match never sits in "Starting soon".
+    const soonStrict=MATCHES.filter(m=>m.status==="upcoming" && !isStarted(m) &&(liveFilter.sport==="All"||m.sport===liveFilter.sport)&&(liveFilter.comp==="All"||m.comp===liveFilter.comp)).slice(0,6);
+    const soon=soonStrict.length?soonStrict:MATCHES.filter(m=>m.status==="upcoming" && !isStarted(m) &&(liveFilter.sport==="All"||m.sport===liveFilter.sport)).slice(0,6);
+    body=`<div class="card empty"><div class="big">${icon('tv')}</div><h3>Nothing live in ${esc(where)} — starting soon instead</h3><p>These matches are starting soon instead.</p></div>
     <div class="sec-head"><h2>Starting soon</h2></div>
     <div class="card">${soon.length?soon.map(m=>matchRow(m)).join(""):'<div class="slip-empty">No upcoming matches for this filter.</div>'}</div>`;
   } else {
@@ -3629,10 +3788,10 @@ function pageLive(){
     body=Object.entries(byComp).map(([c,ms])=>`<div class="group-label">${esc(c)} · ${ms.length} live</div><div class="card">${ms.map(m=>matchRow(m)).join("")}</div>`).join("");
   }
   return `
-  <h1>Live now <span class="live-badge">● ${live.length} live</span></h1>
-  <p class="muted small" style="margin:6px 0 14px">Every match in play — scores and clocks update live.</p>
+  <h1>${filtered.length?`Live now <span class="live-badge">${filtered.length} live</span>`:`Nothing live in ${esc(where)}`}</h1>
+  <p class="muted small" style="margin:6px 0 14px">${filtered.length?"Every match in play — scores and clocks update live.":"No matches are in play for this filter — the matches below start soon."}</p>
   <div class="filters">
-    ${["All","Soccer","Tennis","Basketball"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';liveFilter.comp='All';render()">${s==="All"?"All sports":s}</button>`).join("")}
+    ${["All","Soccer","Tennis","Basketball"].map(s=>`<button class="fchip ${liveFilter.sport===s?"on":""}" onclick="liveFilter.sport='${s}';liveFilter.comp='All';render()">${s==="All"?"All sports":(s==="Soccer"?"Football":s)}</button>`).join("")}
   </div>
   <div class="filters">
     <button class="fchip ${liveFilter.comp==="All"?"on":""}" onclick="liveFilter.comp='All';render()">All competitions</button>
@@ -3648,66 +3807,24 @@ function pageFootball(){
   const list=MATCHES.filter(m=>m.sport==="Soccer" && m.comp===footComp);
   return `
   <h1>Football</h1>
-  <p class="muted small" style="margin:6px 0 14px">Top competitions — tap ★ to follow a team or a competition.</p>
-  <div class="mtabs">${COMPS.map(c=>`<button class="mtab ${footComp===c?"on":""}" onclick="footComp='${esc(c)}';render()">${esc(c)} <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${follows.comps.includes(c)?"★":"☆"}</span></button>`).join("")}</div>
+  <p class="muted small" style="margin:6px 0 14px">Top competitions — tap ${starIcon(false)} to follow a team or a competition.</p>
+  <div class="mtabs">${COMPS.map(c=>`<button class="mtab ${footComp===c?"on":""}" onclick="footComp='${esc(c)}';render()">${esc(c)} <span class="starbtn" onclick="event.stopPropagation();toggleFollowComp('${esc(c)}')" role="button" title="Follow ${esc(c)}">${starIcon(follows.comps.includes(c))}</span></button>`).join("")}</div>
   <div class="filters">
     <button class="fchip ${footMarket==="1x2"?"on":""}" onclick="footMarket='1x2';render()">Match result</button>
     <button class="fchip ${footMarket==="ou"?"on":""}" onclick="footMarket='ou';render()">Total goals</button>
     <button class="fchip ${footMarket==="btts"?"on":""}" onclick="footMarket='btts';render()">Both teams to score</button>
   </div>
-  <div class="group-label">${esc(footComp)} ${follows.comps.includes(footComp)?"· ⭐ Following":""}</div>
-  <div class="card">${list.length?list.map(m=>matchRow(m, true, footMarket)).join(""):'<div class="slip-empty">No fixtures in this competition yet.</div>'}</div>
+  <div class="group-label">${esc(footComp)} ${follows.comps.includes(footComp)?"· "+starIcon(true)+" Following":""}</div>
+  ${list.length?groupRowsHTML(list, true, footMarket):'<div class="card"><div class="slip-empty">No fixtures in this competition yet.</div></div>'}
   <div class="sec-head"><h2>All football</h2><span class="small muted">${MATCHES.filter(m=>m.sport==="Soccer").length} matches</span></div>
   ${COMPS.filter(c=>c!==footComp).map(c=>{
     const ms=MATCHES.filter(m=>m.sport==="Soccer"&&m.comp===c);
-    return `<div class="group-label">${esc(c)}</div><div class="card">${ms.map(m=>matchRow(m, true, footMarket)).join("")}</div>`;
+    return `<div class="group-label">${esc(c)}</div>${groupRowsHTML(ms, true, footMarket)}`;
   }).join("")}
   <div class="footer-note"><span class="badge-demo">Demo prototype</span> &nbsp;Sample fixtures and odds only.</div>`;
 }
 
 /* --- Page 4: Match page --- */
-function timelineFor(m){
-  // Round 9 (item 15a): the match timeline runs to full time. The static
-  // entries (m1: 9', 23', 31', 45', 49') are kept, and the engine's events
-  // are appended — goals from the scorers (with the running score), cards
-  // from the hash schedule, substitutions at 60' and 75', and half-time /
-  // full-time markers. Only events up to the current minute are shown.
-  if(m.sport!=="Soccer") return null;
-  const started = isStarted(m);
-  const min = isLiveNow(m) ? curMin(m) : started ? startedInfo(m).min : (isFT(m) ? 90 : null);
-  if(min===null) return TIMELINE[m.id] || null;
-  const out = (TIMELINE[m.id] || []).slice();
-  const goalMins = new Set(out.filter(e=>e.icon==="⚽").map(e=>e.min));
-  const cardMins = new Set(out.filter(e=>e.icon==="🟨").map(e=>e.min));
-  const scorers = (started ? startedInfo(m).scorers : (m.scorers || [])).slice().sort((a,b)=>a.min-b.min);
-  let rh = 0, ra = 0;
-  for(const s of scorers){
-    if(s.min > min) break;
-    if(teamOfPlayer(s.p)===m.home) rh++; else ra++;
-    if(goalMins.has(s.min)) continue;
-    out.push({min: s.min, icon:"⚽", text:"Goal — "+s.p+" · "+rh+"–"+ra});
-  }
-  const scH = SCORERS[m.home]||["Top scorer"], scA = SCORERS[m.away]||["Top scorer"];
-  const seedMin = (m._seed && m._seed.minute) || 0;
-  for(let k = seedMin+1; k <= min; k++){
-    if(hash01(m.id+"|card|"+k) < 0.04 && !cardMins.has(k)){
-      const home = hash01(m.id+"|cardt|"+k) < 0.5;
-      const list = home ? scH : scA;
-      const p = list[Math.floor(hash01(m.id+"|cardp|"+k)*list.length)] || list[0];
-      out.push({min: k, icon:"🟨", text:"Yellow card — "+p});
-    }
-  }
-  if(min>=45 && !out.some(e=>e.min===45 && /Half time/.test(e.text))) out.push({min:45, icon:"⏸️", text:"Half time"});
-  if(min>=60) out.push({min:60, icon:"🔄", text:"Substitution — "+(scH[1]||scH[0])+" on, "+scH[0]+" off"});
-  if(min>=75) out.push({min:75, icon:"🔄", text:"Substitution — "+(scA[1]||scA[0])+" on, "+scA[0]+" off"});
-  // Round 10 (item 5): the full-time entry writes the RUNNING score
-  // (rh–ra, built from the scorers above) — not m.hs/m.as, which are 0
-  // for a started match. The seed timelines all used to end "90′ Full
-  // time — 0–0" while the real finals were 2–1 / 0–3 / 2–1 / 2–1.
-  if(min>=90 && !out.some(e=>e.min===90 && /Full time/.test(e.text))) out.push({min:90, icon:"🏁", text:"Full time — "+rh+"–"+ra});
-  out.sort((a,b)=>a.min-b.min);
-  return out.length ? out : null;
-}
 function pageMatch(id){
   // Round 9 (item 15f): an unknown match id is a not-found page, not a
   // silent redirect to the first match — the old code showed Arsenal for
@@ -3776,7 +3893,6 @@ function pageMatch(id){
   // so refreshClocks() keeps it in step with the clock.
   const halfLabel = (live && m.sport==="Soccer") ? `<span data-period-match="${m.id}">${periodLabel(m)}</span>` : (started && m.sport==="Soccer") ? (st.period==="ht"?"Half time":st.period==="1h"?"1st half":st.period==="2h"?"2nd half":"Full time") : (live ? m.sport : "");
   const mkts=m._markets[matchTab];
-  const tl = timelineFor(m);
   // Round 9 (item 9): during half time EVERY odd on the match page is
   // locked — the list already said "odds paused" while the page kept
   // selling Match result.
@@ -3784,19 +3900,17 @@ function pageMatch(id){
   return `
   <div style="margin-bottom:10px"><a href="${m.sport==="Soccer"?"#/football":"#/live"}" style="color:var(--muted);font-size:13px">‹ ${esc(m.comp)}</a></div>
   <div class="scoreboard">
-    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':started?' · '+esc(ko.startedLabel||"Started"):" · "+esc(m.date)+" "+(ko.past?"Started":ko.label)}</div>
+    <div class="comp">${esc(m.comp)}${voided?' · <span class="live-badge" style="background:var(--muted2)">Postponed</span>':ft?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':fin?' · <span class="live-badge" style="background:var(--muted2)">Final</span>':live?' · <span class="live-badge">Live</span>':closed?(m.sport==="Soccer"?' · <span class="live-badge" style="background:var(--muted2)">Full time</span>':' · <span class="live-badge" style="background:var(--muted2)">Final</span>'):started?' · '+esc(ko.startedLabel||"Started"):" · "+esc(m.date)+" "+(ko.past?"Started":ko.label)}</div>
     <div class="clock-row">${clockHTML}<span class="muted small">${halfLabel}</span></div>
     <div class="teams-row">
       <div class="team">${crest(m.home)}<div class="nm">${esc(m.home)}</div></div>
       <div class="score">${(live||ft||fin)?m.hs:(started&&m.sport==="Soccer")?st.hs:(stT)?stT.sets.filter(s=>s[0]>s[1]).length:"–"}<span>–</span>${(live||ft||fin)?m.as:(started&&m.sport==="Soccer")?st.as:(stT)?stT.sets.filter(s=>s[1]>s[0]).length:"–"}</div>
       <div class="team">${crest(m.away)}<div class="nm">${esc(m.away)}</div></div>
     </div>
-    <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${follows.teams.includes(m.home)?"★ Following":"☆ Follow"} ${esc(m.home)}</button></div>
+    <div style="margin-top:12px"><button class="starbtn ${follows.teams.includes(m.home)?"on":""}" style="font-size:15px" onclick="toggleFollowTeam('${esc(m.home)}')">${starIcon(follows.teams.includes(m.home))} ${follows.teams.includes(m.home)?"Following":"Follow"} ${esc(m.home)}</button></div>
   </div>
-  ${m.sport==="Soccer" ? `<div class="card" style="padding:10px 14px;margin-bottom:14px"><div class="small" style="font-weight:700">Match stats</div><div class="small muted" style="margin-top:4px">Corners <b data-corners-match="${m.id}">${matchCorners(m)}</b> · Cards <b data-cards-match="${m.id}">${matchCards(m)}</b></div></div>` : ""}
-  ${JUDGE_MODE && live && !voided && !ft ? `<div class="card" style="padding:10px 14px;margin-bottom:14px"><button onclick="voidMatch('${m.id}')" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer">🚫 Void this match</button> <span class="small muted">Judge only — voids this match and refunds every open bet on it in full.</span></div>` : ""}
-  ${tl?`<div class="card" style="padding:13px 14px;margin-bottom:14px"><h3 style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px">Match events</h3>${tl.map(e=>`<div style="display:flex;gap:10px;padding:5px 0;font-size:13px"><span style="flex:0 0 34px;font-weight:800;font-variant-numeric:tabular-nums">${e.min}′</span><span style="flex:0 0 20px">${e.icon}</span><span>${esc(e.text)}</span></div>`).join("")}</div>`:""}
-  <div class="var-banner${(varActive && m.id===MATCHES[0].id && !ft)?" show":""}" id="varBanner">📺 VAR check in progress — Match result is suspended until the check clears.</div>
+  ${JUDGE_MODE && live && !voided && !ft ? `<div class="card" style="padding:10px 14px;margin-bottom:14px"><button onclick="voidMatch('${m.id}')" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer">Void this match</button> <span class="small muted">Judge only — voids this match and refunds every open bet on it in full.</span></div>` : ""}
+  <div class="var-banner${(varActive && m.id===MATCHES[0].id && !ft)?" show":""}" id="varBanner">${icon('tv')} VAR check in progress — Match result is suspended until the check clears.</div>
   ${htPaused?`<div class="card" style="padding:13px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">Half time — odds paused</h3><p class="muted small" style="margin-top:4px">The break is on — no odds can be placed on this match until the 2nd half starts.</p></div>`:""}
   ${voided?`<div class="card" style="padding:16px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">Postponed — this match will not be played</h3><p class="muted small" style="margin-top:4px">The fixture was postponed. No odds are offered, and every open bet on this match settled as Void with the full stake refunded (see My bets → Settled).</p></div>`
   :closed?`<div class="card" style="padding:16px 14px;margin-bottom:14px"><h3 style="font-size:15px;font-weight:800">${closedLabel} — ${closedScore}</h3><p class="muted small" style="margin-top:4px">This match has ended. Betting is closed; the markets below are no longer offered.</p></div>`
@@ -3812,7 +3926,7 @@ function pageMatch(id){
     const srem = susp ? suspRemaining(sk) : null;
     // Round 7 (item 14): a market opened from a search result is highlighted.
     const hl = window._pendingMarketLabel && mk.label===window._pendingMarketLabel;
-    return `<div class="market${hl?" hl":""}" data-mlabel="${esc(mk.label)}"><h3>${esc(mk.label)} ${susp?'<span class="susp-tag">⛔ Suspended</span>':""}</h3>
+    return `<div class="market${hl?" hl":""}" data-mlabel="${esc(mk.label)}"><h3>${esc(mk.label)} ${susp?`<span class="susp-tag">${icon('ban')} Suspended</span>`:""}</h3>
       <div class="odds-grid ${mk.opts.length===2?"two":""}">
         ${mk.opts.map(op=>oddsBtn(m, mk.label, {...op, suspended:susp || htPaused})).join("")}
       </div>
@@ -3848,13 +3962,14 @@ function pageBets(){
   </div>
   ${myBetsHTML(betTab)}
   <details class="demo-tips">
-    <summary>💡 Prototype tips — how to see every state</summary>
+    <summary>${icon('bulb')} Prototype tips — how to see every state</summary>
     <ul>
       ${JUDGE_MODE?`<li><b>Preview every state:</b> use the “PROTOTYPE — PREVIEW EVERY STATE” buttons below the slip — Move live odds, Suspend selection, Fail next bet, Odds changed — they trigger each state on demand.</li>`:`<li><b>States happen live:</b> odds move every few seconds, markets suspend briefly, and a bet can fail — watch the slip and My bets as you play.</li>`}
       <li><b>Odds moving:</b> prices nudge every few seconds and flash green/red — on this page and the match page.</li>
       <li><b>Odds changed:</b> leave a selection in the slip; when its price moves you'll see “Odds changed” and must tap <b>Accept</b> before placing.</li>
       <li><b>Suspended:</b> on the Arsenal match page, the <b>Corners &amp; cards</b> group and <b>Next goal</b> are suspended (locked). Live markets also suspend briefly from time to time — a suspended selection in the slip can't be placed.</li>
-      <li><b>Bet failed:</b> try placing with an empty/0 stake, or with a suspended selection in the slip.</li>
+      <li><b>Bet failed:</b> in judge mode (?judge=1), tap <b>Fail next bet</b> in the “PROTOTYPE — PREVIEW EVERY STATE” panel, then place a bet — the sportsbook rejects it (“Bet couldn't be placed — odds no longer available”) and the banner offers a <b>Retry</b> that places at the latest odds. An empty stake or a suspended selection is NOT a failed bet — those show their own messages instead.</li>
+      <li><b>Nothing live:</b> on the Live page, pick the <b>Champions League</b> competition — nothing is live there, so the title reads “Nothing live in Champions League” and the matches below are starting soon.</li>
       <li><b>Bet placed:</b> add a stake and place — the bet lands in My bets → Open.</li>
       <li><b>Cash out:</b> use Cash out on any open bet — it moves to Settled as “Cashed out”.</li>
     </ul>
