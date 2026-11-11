@@ -241,6 +241,7 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
 .slip-empty .big{font-size:24px;margin-bottom:6px}
 .slip-item{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 12px;margin-bottom:9px}
 .slip-item.suspended{border-color:rgba(240,68,82,.55)}
+.slip-item.blocked{border-color:rgba(240,68,82,.55)}
 .slip-item .sel{font-weight:700;font-size:14px}
 .slip-item .mk{color:var(--muted);font-size:12px;margin-top:1px}
 .slip-item .oddsrow{display:flex;align-items:center;gap:8px;margin-top:9px;min-width:0}
@@ -425,12 +426,12 @@ h2 .sub{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px}
    the seeded demo (balance 1,250 USDT, seeded My bets). This runs BEFORE any
    state is read from localStorage. The version is also shown in the footer
    ("Build v5") so a reviewer can tell which build is actually rendering. */
-const BUILD_VERSION = "11";
+const BUILD_VERSION = "12";
 (function(){
   let stored = null;
   try{ stored = localStorage.getItem("hb-proto-version"); }catch(e){}
   if(stored !== BUILD_VERSION){
-    try{ ["follows","mybets","balance","live"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
+    try{ ["follows","mybets","balance","live","slip"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
   }
   try{ localStorage.setItem("hb-proto-version", BUILD_VERSION); }catch(e){}
 })();
@@ -625,6 +626,21 @@ function bbEvents(m){
 function bbElapsed(m){
   const b = bbBase(m);
   return (b.q - 1) * BB_QSEC + (BB_QSEC - b.sec) + Math.floor((Date.now() - b.at) / 1000);
+}
+/* Round 12 (item C): the points still to come in a basketball game, from
+   the deterministic event schedule — not a per-minute bound. A single
+   basket is 2–3 points in a few seconds, so a "max 18 points per minute"
+   bound understates what one team can still score in a short window (a
+   3-point lead with 5 seconds left can still be tied by one 3-pointer).
+   The exact schedule is what liveDecided must use: a bet is only "won"
+   when even every remaining point for the other side cannot catch it. */
+function bbFuturePts(m){
+  const el = bbElapsed(m);
+  let home = 0, away = 0;
+  for(const e of bbEvents(m)){
+    if(e.t > el && e.t <= 2880){ if(e.home) home += e.pts; else away += e.pts; }
+  }
+  return {home, away};
 }
 function syncBbScore(m){
   // Round 9 (item 3): sync while the game is live and not yet processed
@@ -1018,8 +1034,16 @@ function marketsFor(m, opts){
       // is already over, so the market must be closed (its bets settle).
       (label === "1st half result" && isFirstHalfOver(m)) ||
       (label === "1st half total goals 0.5" && isFirstHalfOver(m)) ||
-      (label === "First corner" && min > 45) ||
-      (label === "First goal before 30:00" && min > 30) ||
+      // Round 12 (item I2): "First corner" closes ONLY once the first
+      // corner has actually happened (corners > 0) — the old min > 45
+      // killed the market in the 2nd half even when corners were still 0.
+      // A finished match has no markets at all (marketsFor returns {}),
+      // so no separate finished check is needed here.
+      (label === "First corner" && (eff ? eff.corners : (m.corners||0)) > 0) ||
+      // Round 12 (item I1): "First goal before 30:00" closes at minute
+      // 30 — at 30' the "Yes" side is already impossible (settlement
+      // needs first.min < 30), but min > 30 still sold it.
+      (label === "First goal before 30:00" && min >= 30) ||
       (label === "Team to score first" && goals > 0) ||
       (label === "First goalscorer" && goals > 0) ||
       // BTTS is decided once both teams have scored (Yes won, No lost).
@@ -1064,8 +1088,13 @@ function marketsFor(m, opts){
     // if any live option remains.
     for(const list of Object.values(groups)) for(const mk of list){
       if(mk.label === "Exact score"){
-        // A final score must have at least the goals already scored.
-        mk.opts = mk.opts.filter(op=>{ const p=op.n.split("-"); return (+p[0])>=mhs && (+p[1])>=mas; });
+        // A final score must have at least the goals already scored —
+        // and at most the goals still scoreable (Round 12 item J1: the
+        // same maxAdd bound the total-goals gate uses, so an impossible
+        // "3–1" at 89' with 0–0 on the board is no longer sold). The
+        // score on the board always survives the bound, so the market
+        // never empties.
+        mk.opts = mk.opts.filter(op=>{ const p=op.n.split("-"); return (+p[0])>=mhs && (+p[1])>=mas && (+p[0])<=mhs+maxAdd && (+p[1])<=mas+maxAdd; });
         // Round 7 (item 7): the score currently on the board must always be
         // offered, and every Exact-score price is repriced off the score +
         // minute (a 3-0 at 71' is not 15.47 for 3-1 — the Poisson model
@@ -1447,6 +1476,42 @@ function goLive(){ liveFilter={sport:"All",comp:"All"}; go("#/live"); render(); 
    seeded open bet re-settled immediately). */
 let resetting = false;
 function saveAll(){ if(resetting || resetInProgress()) return; store.set("follows", follows); store.set("mybets", myBets); store.set("balance", balance); broadcastState(); }
+/* Round 12 (item J3): the slip persists like the rest of the state —
+   balance and open bets already survived a reload, the slip did not.
+   saveSlip runs from renderSlip (the one funnel every slip mutation
+   passes through); loadSlip runs once at boot and on external changes
+   (another tab). A restored selection is re-validated against the
+   CURRENT match state: one whose match ended or was voided is dropped
+   (item A), a suspended flag does not survive a reload (suspensions are
+   transient — the suspension itself is not persisted), and the odds are
+   re-resolved to the live price (a move while away shows as an
+   unaccepted odds change, exactly as in-session). */
+function saveSlip(){ if(resetting || resetInProgress()) return; store.set("slip", slip); }
+function loadSlip(){
+  // Never yank the slip out from under a stake being typed in this tab
+  // (another tab's save arriving mid-keystroke) — the change is picked
+  // up on the next external change or reload instead.
+  const ae = document.activeElement;
+  if(ae && ae.tagName==="INPUT" && ae.closest && ae.closest(".slip-item")) return;
+  let saved = null;
+  try{ saved = store.get("slip", null); }catch(e){}
+  if(!Array.isArray(saved)) return;
+  const restored = [];
+  for(const s of saved){
+    if(!s || !s.key || !s.matchId || !s.market || !s.sel) continue;
+    const m = MATCHES.find(x=>x.id===s.matchId);
+    if(!m) continue;
+    // Ended / voided selections are dropped (item A validation).
+    if(isVoided(m) || isEnded(m)) continue;
+    const ns = {key:s.key, matchId:s.matchId, match:s.match || (m.home+" v "+m.away), comp:s.comp || m.comp, market:s.market, sel:s.sel, odds:(typeof s.odds==="number"?s.odds:parseFloat(s.odds)||1.50), stake:String(s.stake||""), changed:false, oldOdds:null, accepted:false, suspended:false};
+    // Re-resolve the live price: a move while away is an unaccepted
+    // odds change, not a silent repricing.
+    const live = currentOdds(m, ns.market, ns.sel, ns.odds);
+    if(live !== ns.odds){ ns.oldOdds = ns.odds; ns.odds = live; ns.changed = true; }
+    restored.push(ns);
+  }
+  slip = restored;
+}
 /* Round 7 (items 8, 9) — PERSISTED LIVE STATE. A reload must continue the
    demo, not re-randomise it: clock bases (soccer/basketball/tennis), scores,
    the score-aware 1X2 overlay, the tick-drift price overlay, and the
@@ -1994,6 +2059,7 @@ function onExternalStateChange(){
   try{ const b = store.get("mybets", null); if(b) myBets = b; }catch(e){}
   try{ const bal = store.get("balance", null); if(typeof bal==="number") balance = bal; }catch(e){}
   loadLiveState();
+  loadSlip(); // Round 12 (item J3): the slip syncs across tabs too.
   render(); renderSlip();
   if(activeId){ const el = document.getElementById(activeId); if(el) el.focus(); }
 }
@@ -2072,17 +2138,6 @@ function refreshClocks(){
     const m = MATCHES.find(x=>x.id===el.dataset.periodMatch); if(!m) return;
     el.textContent = periodLabel(m);
   });
-  // Round 9 (item 15h): the live corner/card counts on the match page
-  // follow the score engine (they are re-rendered on a goal anyway; this
-  // keeps them in step every second without a full render).
-  $$("[data-corners-match]").forEach(el=>{
-    const m = MATCHES.find(x=>x.id===el.dataset.cornersMatch); if(!m) return;
-    el.textContent = matchCorners(m); // Round 10 (item 9): derived counts for a started match, not 0.
-  });
-  $$("[data-cards-match]").forEach(el=>{
-    const m = MATCHES.find(x=>x.id===el.dataset.cardsMatch); if(!m) return;
-    el.textContent = matchCards(m); // Round 10 (item 9): derived counts for a started match, not 0.
-  });
 }
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) refreshClocks(); });
 window.addEventListener("focus", refreshClocks);
@@ -2114,6 +2169,10 @@ window.__hb = {
   tennisNow(id){ const m=MATCHES.find(x=>x.id===id); return m?tennisNow(m):null; },
   bbNow(id){ const m=MATCHES.find(x=>x.id===id); return m?bbNow(m):null; },
   bbLabel(id){ const m=MATCHES.find(x=>x.id===id); return m?bbLabel(m):null; },
+  // Round 12 (item C): the exact points still to come in a basketball
+  // game, from the event schedule — the probe hook for the cash-out
+  // model (liveDecided must not pay full while a tie is still possible).
+  bbFuturePts(id){ const m=MATCHES.find(x=>x.id===id); return m?bbFuturePts(m):null; },
   // Round 6: probe hooks for the settlement acceptance test.
   jumpToFT(){ jumpToFT(); },
   voidFeatured(){ voidFeaturedMatch(); },
@@ -2162,6 +2221,36 @@ window.__hb = {
 function checkTransitions(){
   let needRender = false;
   MATCHES.forEach(m=>{
+    // Round 12 (item B): a DERIVED match — kickoff passed but still listed
+    // as upcoming — is bettable (Round 9, item 10), so an open bet on it
+    // must be able to settle. When it reaches derived full time,
+    // materialize the derived state onto the match and settle exactly
+    // like a live finish — otherwise the bet hangs OPEN forever (stake
+    // never returns, cash out dead).
+    if(m.status==="upcoming" && !m._void && isStarted(m) && isDerivedFinished(m) && !m._finished){
+      m._finished = true;
+      delete m._markets;
+      if(m.sport==="Soccer"){
+        const eff = startedInfo(m);
+        m.hs = eff.hs; m.as = eff.as; m.scorers = eff.scorers;
+        m.corners = eff.corners; m.cards = eff.cards; m._ft = true;
+        // 1st-half bets settle from the derived half-time score first,
+        // then the full-time markets — the same order as a live match.
+        settleHTBets(m);
+        settleMatchBets(m);
+      } else if(m.sport==="Tennis"){
+        const t = startedTennis(m);
+        const sw = [t.sets.filter(s=>s[0]>s[1]).length, t.sets.filter(s=>s[1]>s[0]).length];
+        m.hs = sw[0]; m.as = sw[1];
+        m.setScore = t.sets.map(s=>s[0]+"-"+s[1]).join(", ");
+        m.games = [0,0];
+        settleMatchBets(m);
+      }
+      // Basketball has no derived finish (isDerivedFinished is false for
+      // it), so there is no third branch here.
+      saveLiveState(); needRender = true;
+      return;
+    }
     if(m.status!=="live" || m._void) return;
     if(m.sport==="Soccer"){
       const lm = curMin(m);
@@ -2323,9 +2412,47 @@ function slipTotals(list){
   // 0.00 in the summary while the row showed the computed value.
   // (placeBets passes only the selections being placed, so a suspended
   // selection's stake still never blocks a healthy placement.)
-  list.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; ret+=st*s.odds; });
+  // Round 12 (item D): the return uses the FROZEN price (effOdds) — a
+  // selection whose odds moved but were not accepted yet counts at the
+  // price the user would actually get, not the new live price.
+  list.forEach(s=>{ const st=parseFloat(s.stake)||0; stake+=st; ret+=st*effOdds(s); });
   return {stake, ret};
 }
+/* Round 12 (item D): the price a Potential return is computed from — the
+   FROZEN/accepted price, never a live price that has not been accepted.
+   When the odds moved since the selection was added, s.odds is the new
+   live price and s.oldOdds is the price frozen at add time (the drift
+   code sets oldOdds only on the first unaccepted change). */
+function effOdds(s){ return (s.changed && s.oldOdds) ? s.oldOdds : s.odds; }
+/* Round 12 (item A): ONE re-validation for a slip selection against the
+   CURRENT match state — the same question the match page's gate answers
+   ("is this still sellable?"), asked again at render time and at place
+   time. Returns null when the selection can still be placed, else the
+   reason it cannot: "ht" (half time — odds paused), "void" (postponed),
+   "ended" (full time / Final, incl. derived), "closed" (the market is no
+   longer offered — decided, or the selection vanished from the market
+   list). A suspended selection is reported by the suspension system, not
+   here (callers check s.suspended separately). */
+function slipBlocked(s){
+  const m = MATCHES.find(x=>x.id===s.matchId);
+  if(!m) return "closed";
+  if(isVoided(m)) return "void";
+  if(isEnded(m)) return "ended";
+  if(m.sport==="Soccer" && isHT(m)) return "ht";
+  // The market list IS the gate: a market that is no longer offered
+  // (decided, or past its closing minute) is absent from it. Recompute
+  // fresh — a cached list predates the minute that closed the market.
+  const mkts = marketsFor(m);
+  for(const g of Object.values(mkts)){
+    const mk = g.find(x=>x.label===s.market);
+    if(mk && mk.opts.some(o=>o.n===s.sel)) return null;
+  }
+  return "closed";
+}
+/* Round 12 (item D): the selections that will actually be placed — staked,
+   not suspended, not blocked by the current match state. The display gate
+   (placeDisabled) and placeBets both count only these. */
+function slipPlaceable(){ return slip.filter(s=>!s.suspended && !slipBlocked(s) && parseFloat(s.stake)>0); }
 function balanceHTML(){
   // Balance + Balance after, for the slip. Uses its own classes (never ".tot")
   // so the per-placebar totals indexing in setStake keeps working.
@@ -2347,12 +2474,24 @@ function acceptOdds(key){
 }
 function acceptAllOdds(){ slipMsg=null; slip.forEach(s=>{ s.changed=false; s.oldOdds=null; s.accepted=true; }); markState("accepted"); clearToastPrefix("Odds changed"); renderSlip(); }
 function removeSlip(key){ slipMsg=null; slip=slip.filter(s=>s.key!==key); renderSlip(); syncOddButtons(); }
-function clearSlip(){ slipMsg=null; slip=[]; renderSlip(); syncOddButtons(); }
+// Round 12 (item J4): the handler itself was already correct (the slip
+// emptied on a desktop click, a mobile sheet tap and el.click() alike) —
+// what was missing was any visible confirmation, so a tap read as "did
+// nothing". Say so plainly now.
+function clearSlip(){ slipMsg=null; slip=[]; renderSlip(); syncOddButtons(); toast("Slip cleared", "ok"); }
 function setStake(key, val, el){
   const s=slip.find(x=>x.key===key); if(!s) return;
-  s.stake=val.replace(/[^0-9.]/g,"");
+  // Round 12 (item J2): a minus sign is not silently dropped — typing
+  // "-5" used to DISPLAY "-5" while COUNTING +5.00. A negative stake is
+  // not a stake at all: it counts as 0, and the field is corrected to
+  // "0" on the spot so what is shown and what is counted always agree.
+  if(/-/.test(val)){ s.stake="0"; if(el) el.value="0"; }
+  else s.stake=val.replace(/[^0-9.]/g,"");
   // update in place (no full re-render, so the input keeps focus while typing)
   const t=slipTotals();
+  // Round 12 (item D): the placeable total — what the button will charge
+  // and what Balance after will show. The summary rows still use t (all).
+  const pt=slipTotals(slipPlaceable());
   $$(`.slip-item[data-slip-key="${CSS.escape(key)}"]`).forEach(item=>{
     const ret=item.querySelector(".ret b"); if(ret) ret.textContent=fmt((parseFloat(s.stake)||0)*s.odds)+" USDT";
     // Typing a custom stake must clear/update the quick-chip mark in place
@@ -2378,22 +2517,27 @@ function setStake(key, val, el){
     // Round 4: upfront balance validation — the Place button is disabled the
     // moment the total stake passes the balance (not just failing at submit),
     // with an explicit red message. Never show a negative Balance after.
-    const overBal = t.stake > balance;
+    // Round 12 (item D): the gate counts only what will actually be
+    // placed (slipPlaceable) — the same set placeBets validates. The
+    // Place label shows the amount the button will charge.
+    const overBal = pt.stake > balance;
     const ob=pb.querySelector(".overbal-note");
-    if(ob){ ob.style.display = overBal ? "" : "none"; if(overBal) ob.innerHTML = icon('alert')+" Total stake "+fmt(t.stake)+" USDT exceeds your balance of "+fmt(balance)+" USDT — lower a stake or cash out an open bet first."; }
+    if(ob){ ob.style.display = overBal ? "" : "none"; if(overBal) ob.innerHTML = icon('alert')+" Total stake "+fmt(pt.stake)+" USDT exceeds your balance of "+fmt(balance)+" USDT — lower a stake or cash out an open bet first."; }
     if(!placing){
       const place=[...pb.querySelectorAll(".placebtn")].find(b=>b.textContent.includes("Place bet"));
       // Round 11 (item 10): the same disabled rule as the render — total
-      // stake 0, an unaccepted odds change on a staked selection, or a
-      // staked suspended selection.
-      const pd = overBal || t.stake===0 || slip.some(x=>x.changed && parseFloat(x.stake)>0 && !x.suspended) || slip.some(x=>x.suspended && parseFloat(x.stake)>0);
-      if(place){ place.textContent="Place bet · "+fmt(t.stake)+" USDT"; place.disabled = pd; }
+      // stake 0, or an unaccepted odds change on a staked selection that
+      // IS being placed. Round 12 (item D): a suspended/blocked selection
+      // does NOT disable the button — placeBets skips it and places the
+      // healthy ones, so the gate matches placeBets (pt.stake > 0).
+      const pd = overBal || pt.stake===0 || slip.some(x=>x.changed && parseFloat(x.stake)>0 && !x.suspended && !slipBlocked(x));
+      if(place){ place.textContent="Place bet · "+fmt(pt.stake)+" USDT"; place.disabled = pd; }
     }
     if(overBal) markState("overbal");
   });
   // Balance itself never changes while typing, but Balance after follows the stake.
   $$(".bal-val").forEach(el=>el.textContent=fmtC(balance)+" USDT");
-  $$(".bal-after-val").forEach(el=>el.textContent=fmtC(Math.max(0, balance - t.stake))+" USDT");
+  $$(".bal-after-val").forEach(el=>el.textContent=fmtC(Math.max(0, balance - pt.stake))+" USDT");
   const sb=$("#slipbarRet"); if(sb) sb.textContent="Potential "+fmt(t.ret)+" USDT";
   // The "no stake" note is rendered by slipHTML but typing updates in place
   // (no re-render) — toggle it live or it goes stale the moment a stake lands.
@@ -2424,25 +2568,33 @@ function placeBets(){
   // selection can never be placed, but it must not block the healthy
   // selections in the same slip. Split first; every check below runs on
   // the healthy selections only, and the suspended ones stay in the slip.
-  const healthy = slip.filter(s=>!s.suspended);
   const susp = slip.filter(s=>s.suspended);
+  // Round 12 (item A): the SAME re-validation the display gate uses —
+  // every selection is checked against the CURRENT match state before
+  // anything is placed. A selection whose match went to half time, was
+  // postponed, ended, or whose market closed is NOT placed and does NOT
+  // block the healthy ones; it stays in the slip with its note.
+  const blocked = slip.filter(s=>!s.suspended && slipBlocked(s));
+  const healthy = slip.filter(s=>!s.suspended && !slipBlocked(s));
   // Round 11 (item 9): singles are INDEPENDENT — a selection without a
   // stake never blocks the others. Only staked, healthy selections are
   // placed; unstaked ones stay in the slip with the note under Place bet.
   const toPlace = healthy.filter(s=>parseFloat(s.stake)>0);
   const noStake = healthy.filter(s=>!(parseFloat(s.stake)>0));
-  // Round 4: a match that ended (full time) while its selection sat in the
-  // slip can't be placed — the bet is dead, say so plainly.
-  // Round 10 (item 2): any finished match, any sport. (An ended selection
-  // WITHOUT a stake is not being placed, so it blocks nothing.)
-  const ended = toPlace.find(s=>{ const mm=MATCHES.find(x=>x.id===s.matchId); return mm && (isFinished(mm) || isDerivedFinished(mm)); });
-  if(ended){ showSlipMsg("err","ended"); toast("Bet failed — that match has ended", "err"); markState("failed"); return; }
   // Round 11 (item 7): nothing placeable is a VALIDATION error, not a
   // failed placement — no "Bet failed" label, and the "failed" checklist
-  // state is not marked. A suspended-only slip gets the suspended message;
-  // a stake-less slip gets the enter-a-stake message.
+  // state is not marked. A blocked-only slip gets the blocked message
+  // (half time / postponed / ended / market closed); a suspended-only
+  // slip gets the suspended message; a stake-less slip gets the
+  // enter-a-stake message.
   if(!toPlace.length){
-    if(susp.length){ showSlipMsg("err","suspended"); toast("Selection suspended — remove it or wait for the market to reopen", "err"); }
+    const blk = blocked.find(s=>parseFloat(s.stake)>0) || blocked[0];
+    if(blk){
+      const reason = slipBlocked(blk);
+      if(reason==="ended"){ showSlipMsg("err","ended"); toast("Bet failed — that match has ended", "err"); markState("failed"); }
+      else { showSlipMsg("err","blocked"); toast("Selection can't be placed right now — check the note on it", "err"); }
+    }
+    else if(susp.length){ showSlipMsg("err","suspended"); toast("Selection suspended — remove it or wait for the market to reopen", "err"); }
     else { showSlipMsg("err","no-stake"); toast("Enter a stake for each single you want to place", "err"); }
     return;
   }
@@ -2470,9 +2622,9 @@ function placeBets(){
     });
     const n=toPlace.length;
     balance = Math.round((balance - tt.stake)*100)/100; // deduct the placed stake; persists via saveAll
-    slip = susp.concat(noStake); saveAll(); syncOddButtons();
+    slip = susp.concat(blocked).concat(noStake); saveAll(); syncOddButtons();
     markState("placed");
-    showSlipMsg("ok","placed","Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(tt.stake)+" USDT, potential return "+fmt(tt.ret)+" USDT. See it in My bets → Open."+(susp.length?" "+susp.length+" suspended selection"+(susp.length>1?"s":"")+" stayed in your slip.":"")+(noStake.length?" "+noStake.length+" selection"+(noStake.length>1?"s":"")+" without a stake stayed in your slip.":""));
+    showSlipMsg("ok","placed","Bet placed! "+n+" single"+(n>1?"s":"")+" — total stake "+fmt(tt.stake)+" USDT, potential return "+fmt(tt.ret)+" USDT. See it in My bets → Open."+(susp.length?" "+susp.length+" suspended selection"+(susp.length>1?"s":"")+" stayed in your slip.":"")+(blocked.length?" "+blocked.length+" selection"+(blocked.length>1?"s":"")+" couldn't be placed right now and stayed in your slip.":"")+(noStake.length?" "+noStake.length+" selection"+(noStake.length>1?"s":"")+" without a stake stayed in your slip.":""));
     // Round 7 (item 11): the "Bet placed!" banner auto-dismisses after ~5s
     // (and has an X to close it sooner — see renderSlipMsgNodes).
     setTimeout(()=>{ if(slipMsg && slipMsg.key==="placed"){ slipMsg=null; renderSlipMsgNodes(); } }, 5000);
@@ -2521,9 +2673,19 @@ function settleTennisOutcome(b, m){
       return sel===m.home ? (w==="H"?"won":"lost") : sel===m.away ? (w==="A"?"won":"lost") : null;
     }
     case "Set betting": {
-      // The selection is the exact sets score, e.g. "2-1".
-      const p = sel.split("-");
-      return (+p[0]===sw[0] && +p[1]===sw[1]) ? "won" : "lost";
+      // Round 12 (item G): the selection is "Player 2–0" — a name plus a
+      // score joined by an EN DASH (U+2013), not a plain hyphen. The old
+      // split("-") never found a hyphen, so +p[0] was NaN and every Set
+      // betting bet lost. Parse the trailing score (either dash) and map
+      // it to home/away by the player name — the same mapping marketsFor
+      // uses when it filters the reachable finals.
+      const mm = sel.match(/(\d+)[–-](\d+)$/);
+      if(!mm) return null;
+      const fh = +mm[1], fa = +mm[2];
+      if(sel.startsWith(m.home)) return (fh===sw[0] && fa===sw[1]) ? "won" : "lost";
+      if(sel.startsWith(m.away)) return (fa===sw[0] && fh===sw[1]) ? "won" : "lost";
+      // No player name on the selection (seeded bet) — read it as home–away.
+      return (fh===sw[0] && fa===sw[1]) ? "won" : "lost";
     }
     default: break;
   }
@@ -2542,17 +2704,26 @@ function settleBbOutcome(b, m){
   const sel = String(b.sel||"").replace(/ to win$/,"");
   const hs = m.hs||0, as = m.as||0, total = hs+as;
   const numIn = s => { const mm = String(s).match(/(\d+(?:\.\d+)?)/); return mm?parseFloat(mm[1]):null; };
-  switch(b.market){
-    case "Match winner": return sel===m.home ? (hs>as?"won":"lost") : sel===m.away ? (as>hs?"won":"lost") : null;
-    case "Point spread": {
-      const mm = sel.match(/([−+\-])\s*(\d+(?:\.\d+)?)/);
-      if(!mm) return null;
-      const line = parseFloat(mm[2]) * (mm[1]==="+" ? 1 : -1);
-      const adj = sel.startsWith(m.home) ? (hs+line)-as : sel.startsWith(m.away) ? (as+line)-hs : null;
-      if(adj===null) return null;
-      return adj>0 ? "won" : "lost";
-    }
-    default: break;
+  // Round 12 (item C): a tie is a push — the stake is refunded, not
+  // lost. Both sides settling "lost" on a tied game is wrong (the
+  // generator's point schedule does not guarantee a non-tie finish;
+  // there is no overtime anywhere).
+  if(b.market==="Match winner"){
+    if(hs===as) return "void";
+    return sel===m.home ? (hs>as?"won":"lost") : sel===m.away ? (as>hs?"won":"lost") : null;
+  }
+  // Round 12 (item F): spread labels carry their own line ("Point spread
+  // −9.5 / +9.5", "Point spread −2.5 / +2.5") — the old code only matched
+  // the bare label "Point spread", so every bet on the two alternative
+  // lines fell through to "lost". The line is parsed from the selection
+  // itself (U+2212 minus included), exactly as the bare label was.
+  if(/^Point spread/.test(b.market)){
+    const mm = sel.match(/([−+\-])\s*(\d+(?:\.\d+)?)/);
+    if(!mm) return null;
+    const line = parseFloat(mm[2]) * (mm[1]==="+" ? 1 : -1);
+    const adj = sel.startsWith(m.home) ? (hs+line)-as : sel.startsWith(m.away) ? (as+line)-hs : null;
+    if(adj===null) return null;
+    return adj>0 ? "won" : "lost";
   }
   if(/^Total points/.test(b.market)){
     const line = numIn(b.market) !== null ? numIn(b.market) : numIn(sel);
@@ -2821,22 +2992,26 @@ function liveDecided(b, m){
     }
   }
   if(m.sport==="Basketball" && m.status==="live"){
-    const bb = bbNow(m);
     const total = (m.hs||0) + (m.as||0);
-    const remSec = bb.over ? 0 : (4-bb.q)*BB_QSEC + bb.sec;
-    const maxAdd = Math.ceil(remSec/60*BB_MAX_PTS_PER_MIN); // Round 10 (item 3): same bound as the market gate.
+    // Round 12 (item C): the exact points still to come, from the event
+    // schedule — not the old 18-points-per-minute bound. The bound
+    // understates a single team's burst (one 3-pointer is 3 points in a
+    // few seconds), so it could call a bet "won" — and pay the FULL
+    // potential on cash out — while the final score could still tie and
+    // the bet lose. A bet is only decided when even every remaining
+    // point for the other side cannot change it. A tie is never "won".
+    const fut = bbFuturePts(m);
     if(mk==="Match winner"){
-      if(m.hs > m.as+maxAdd && sel===m.home) return "won";
-      if(m.as > m.hs+maxAdd && sel===m.away) return "won";
-      if(m.hs > m.as+maxAdd && sel===m.away) return "lost";
-      if(m.as > m.hs+maxAdd && sel===m.home) return "lost";
+      if(sel===m.home){ if(m.hs > m.as+fut.away) return "won"; if(m.hs+fut.home < m.as) return "lost"; }
+      else if(sel===m.away){ if(m.as > m.hs+fut.home) return "won"; if(m.as+fut.away < m.hs) return "lost"; }
     }
     if(mk==="Total points 224.5" || mk==="Total points 214.5" || mk==="Total points 234.5"){
       const mm = sel.match(/(Over|Under) (\d+(?:\.\d+)?)/);
       if(mm){
         const line = parseFloat(mm[2]);
-        if(mm[1]==="Over"){ if(total>line) return "won"; if(total+maxAdd<line) return "lost"; }
-        else { if(total>line) return "lost"; if(total+maxAdd<line) return "won"; }
+        const futTotal = fut.home + fut.away;
+        if(mm[1]==="Over"){ if(total>line) return "won"; if(total+futTotal<line) return "lost"; }
+        else { if(total>line) return "lost"; if(total+futTotal<line) return "won"; }
       }
     }
   }
@@ -2972,11 +3147,16 @@ function cashOut(id){
   // A pre-match bet has no cash-out value — refuse rather than paying 0.
   if(mmFT && !isLiveNow(mmFT)){ toast("Cash out opens at kickoff — this match hasn't started yet", "err"); return; }
   if(cashOutSuspended(b)){ toast("Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
-  // Round 11 (item 17): the payout is the stored b.cashout — the same
-  // value both surfaces display (refreshed every second) — so the user is
-  // paid exactly what the screen showed, never a fresh recomputation that
-  // drifted a few cents past it.
-  const val = (typeof b.cashout==="number" && b.cashout>0) ? b.cashout : liveCashout(b);
+  // Round 12 (item H): recompute the live value at the click — the
+  // stored value may be stale (the match went FINAL, or the live
+  // decision flipped to lost, between the last 1s refresh and this
+  // click). Refuse outright when the live value is 0; otherwise pay
+  // the LOWER of the stored (screen) value and the live value — the
+  // user is still paid what the screen showed (Round 11 item 17), but
+  // never more than the bet is worth right now.
+  const live = liveCashout(b);
+  if(live<=0){ toast("Cash out is no longer available for this bet", "err"); return; }
+  const val = (typeof b.cashout==="number" && b.cashout>0) ? Math.min(b.cashout, live) : live;
   myBets.open=myBets.open.filter(x=>x.id!==id);
   // If part of this bet was already cashed out, keep that amount on the
   // settled entry so the money trail is complete (total received = part + ret).
@@ -3003,6 +3183,9 @@ function cashOutPartial(id, pct){
   if(cashOutSuspended(b)){ toast("Cash out paused — “"+b.market+"” is suspended on this match", "err"); return; }
   if(pct>=100){ cashOut(id); return; }
   const live = liveCashout(b);
+  // Round 12 (item H): same live re-check as the full cash out — paying
+  // 0 and still shrinking the stake would silently eat the bet.
+  if(live<=0){ toast("Cash out is no longer available for this bet", "err"); return; }
   const paid = Math.round(live * pct/100 * 100)/100;
   const remStake = Math.round(b.stake * (100-pct)/100 * 100)/100;
   b.partCashed = Math.round(((b.partCashed||0) + paid)*100)/100;
@@ -3047,8 +3230,11 @@ function refreshCashoutDisplays(){
   // span (My bets page and side panel) — the two surfaces can never
   // disagree, because they never compute separately.
   for(const b of myBets.open){
-    const v = liveCashout(b);
-    if(v > 0) b.cashout = v;
+    // Round 12 (item H): the stored value follows the live value DOWN
+    // too — the old code only ever raised it, so a bet whose match just
+    // went FINAL (or whose live decision flipped to lost) kept paying
+    // the old, now-invalid value when clicked between refreshes.
+    b.cashout = liveCashout(b);
   }
   $$("[data-co-bet]").forEach(el=>{
     const b = myBets.open.find(x=>x.id===el.dataset.coBet);
@@ -3091,6 +3277,15 @@ function slipMsgText(){
     if(!s) return "";
     return "Bet failed — “"+s.sel+"” can't be placed: that match has ended (full time). Remove it to place the rest.";
   }
+  if(slipMsg.key==="blocked"){
+    const s = slip.find(x=>!x.suspended && slipBlocked(x));
+    if(!s) return "";
+    const reason = slipBlocked(s);
+    if(reason==="ht") return "“"+s.sel+"” can't be placed right now: half time — odds are paused. It will be placeable again in the 2nd half.";
+    if(reason==="void") return "“"+s.sel+"” can't be placed: that match was postponed. Remove it to place the rest.";
+    if(reason==="ended") return "Bet failed — “"+s.sel+"” can't be placed: that match has ended (full time). Remove it to place the rest.";
+    return "“"+s.sel+"” can't be placed: its market has closed. Remove it to place the rest.";
+  }
   return slipMsg.msg||"";
 }
 /* Round 11 (item 6): the slip banner's inner HTML — a genuinely failed
@@ -3104,6 +3299,11 @@ function slipMsgInnerHTML(){
    accept any price that moved since the failure (the retry pays the current
    price, not the frozen one), then place again. */
 function retryFailedBet(){
+  // Round 12 (item K2): before re-placing, show the final accepted
+  // odds — the old code discarded oldOdds and silently accepted every
+  // change, so the retry paid a price the user never saw.
+  const moved = slip.filter(s=>s.changed && !s.suspended);
+  if(moved.length) toast("Retrying at latest odds: "+moved.map(s=>s.sel+" @ "+fmt(s.odds)).join(", "), "ok");
   slip.forEach(s=>{ if(s.changed && !s.suspended){ s.changed=false; s.oldOdds=null; s.accepted=true; } });
   slipMsg=null;
   placeBets();
@@ -3141,7 +3341,7 @@ function resetDemo(){
   // the reload, so even a skipped reload leaves the seed in place.
   resetting = true;
   try{ localStorage.setItem("hb-proto-reset", "1"); }catch(e){}
-  try{ ["follows","mybets","balance","live"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
+  try{ ["follows","mybets","balance","live","slip"].forEach(k=>localStorage.removeItem("hb-proto-"+k)); }catch(e){}
   try{ if(hbChannel) hbChannel.postMessage({t:"reset", at:Date.now()}); }catch(e){}
   follows = JSON.parse(JSON.stringify(SEED_FOLLOWS));
   myBets = JSON.parse(JSON.stringify(SEED_MYBETS));
@@ -3175,24 +3375,44 @@ function slipHTML(){
     ${previewBoxHTML()}`;
   }
   const t=slipTotals();
+  // Round 12 (item D): the GATE counts only what will actually be placed
+  // (slipPlaceable) — the same set placeBets validates. The summary rows
+  // (Total stake / Potential return) still count every selection (Round 11
+  // item 18), but the button, the Balance-after row and the over-balance
+  // note describe the placement itself, so they use the placeable total.
+  // A suspended selection's stake no longer disables the whole slip while
+  // a healthy one can still be placed.
+  const pt=slipTotals(slipPlaceable());
   // Item 10: selections without a stake contribute nothing to the totals and
   // can't be placed — say so plainly instead of leaving a silent 0.00.
   const noStake = slip.some(s=>!(parseFloat(s.stake)>0));
   // Round 4: upfront balance validation — the total stake passing the balance
   // disables Place from the start (not just failing at submit).
-  const overBal = t.stake > balance;
+  const overBal = pt.stake > balance;
   // Round 11 (item 10): the Place button is genuinely disabled (grey +
   // disabled attribute) when there is nothing placeable: total stake 0,
   // an unaccepted odds change on a selection that IS being placed (only
-  // Accept / "Accept all new odds" is active then), or a suspended
-  // selection that has a stake. An unstaked selection's drift blocks
-  // nothing — it is not being placed (same rule as placeBets).
-  const placeDisabled = placing || overBal || t.stake===0 || slip.some(s=>s.changed && parseFloat(s.stake)>0 && !s.suspended) || slip.some(s=>s.suspended && parseFloat(s.stake)>0);
+  // Accept / "Accept all new odds" is active then). An unstaked selection's
+  // drift blocks nothing — it is not being placed (same rule as placeBets).
+  // Round 12 (item A): a selection blocked by the CURRENT match state
+  // (half time, postponed, ended, market closed) counts as not placeable
+  // — it is already excluded from pt by slipPlaceable, so pt.stake===0
+  // disables the button when it is the only selection.
+  // Round 12 (item D): a suspended/blocked selection does NOT by itself
+  // disable the button — placeBets skips it and places the healthy ones,
+  // so the gate must match: the button is live whenever pt.stake > 0.
+  const placeDisabled = placing || overBal || pt.stake===0 || slip.some(s=>s.changed && parseFloat(s.stake)>0 && !s.suspended && !slipBlocked(s));
   return slip.map(s=>{
     const sk = marketKey(s.matchId, s.market);
     const srem = s.suspended ? suspRemaining(sk) : null;
+    // Round 12 (item A): re-validate against the CURRENT match state —
+    // a selection whose match went to half time, was postponed, ended,
+    // or whose market closed shows why it cannot be placed right now.
+    // (A suspended selection already has its own note; skip it here.)
+    const blk = s.suspended ? null : slipBlocked(s);
+    const blkNote = blk==="ht" ? "Half time — odds paused" : blk==="void" ? "Postponed — this match was voided" : blk==="ended" ? "Full time — betting is closed on this match" : blk==="closed" ? "Market closed — this selection can no longer be placed" : null;
     return `
-    <div class="slip-item${s.suspended?" suspended":""}" data-slip-key="${s.key}">
+    <div class="slip-item${s.suspended?" suspended":""}${blk?" blocked":""}" data-slip-key="${s.key}">
       <div style="display:flex;justify-content:space-between;gap:8px">
         <div style="min-width:0"><div class="sel">${esc(s.sel)}</div><div class="mk">${esc(s.match)} · ${esc(s.market)} · ${esc(s.comp)}</div></div>
         <button class="rm" onclick="removeSlip('${s.key}')" aria-label="Remove">✕</button>
@@ -3205,18 +3425,19 @@ function slipHTML(){
       ${s.changed?`<div class="odds-changed">${icon('alert')} Odds changed ${fmt(s.oldOdds)} → ${fmt(s.odds)}<button onclick="acceptOdds('${s.key}')">Accept</button></div>`:""}
       ${s.accepted?`<div class="small" style="color:var(--mint);font-weight:700;margin-top:6px">${icon('lock')} Price frozen at ${fmt(s.odds)} — live moves won't change it.</div>`:""}
       ${s.suspended?`<div class="susp-note">${icon('ban')} Suspended — can't be placed right now${srem!==null?` · reopens in <span data-susp-count="${sk}">${srem}s</span><button onclick="unsuspendMarket('${sk}')" style="margin-left:auto;background:var(--card3);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer">Resume now</button>`:""}</div>`:""}
-      <div class="ret"><span>${s.suspended?"Return (suspended)":"Potential return"}</span><b>${fmt((parseFloat(s.stake)||0)*s.odds)} USDT</b></div>
+      ${blkNote?`<div class="susp-note">${icon('ban')} ${blkNote}</div>`:""}
+      <div class="ret"><span>${s.suspended?"Return (suspended)":"Potential return"}</span><b>${fmt((parseFloat(s.stake)||0)*effOdds(s))} USDT</b></div>
     </div>`;
   }).join("")
   + `<div class="placebar">
       <div class="bal-line"><span>Balance</span><b class="bal-val">${fmtC(balance)} USDT</b></div>
       <div class="tot"><span>Total stake</span><b>${fmt(t.stake)} USDT</b></div>
       <div class="tot"><span>Potential return</span><b>${fmt(t.ret)} USDT</b></div>
-      <div class="bal-line after"><span>Balance after</span><b class="bal-after-val">${fmtC(Math.max(0, balance - t.stake))} USDT</b></div>
+      <div class="bal-line after"><span>Balance after</span><b class="bal-after-val">${fmtC(Math.max(0, balance - pt.stake))} USDT</b></div>
       <div class="nostake-note small muted" style="margin:0 0 8px;${noStake?"":"display:none"}">Selections without a stake are not counted in the totals and can't be placed — enter a stake for each single.</div>
-      <div class="overbal-note" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:8px;${overBal?"":"display:none"}">${icon('alert')} Total stake ${fmt(t.stake)} USDT exceeds your balance of ${fmt(balance)} USDT — lower a stake or cash out an open bet first.</div>
+      <div class="overbal-note" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:8px;${overBal?"":"display:none"}">${icon('alert')} Total stake ${fmt(pt.stake)} USDT exceeds your balance of ${fmt(balance)} USDT — lower a stake or cash out an open bet first.</div>
       ${slip.some(s=>s.changed)?`<button class="placebtn" style="background:var(--amber);color:#241a02;margin-bottom:8px" onclick="acceptAllOdds()">Accept all new odds</button>`:""}
-      <button class="placebtn ${placing?"busy":""}" ${placeDisabled?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(t.stake)+" USDT"}</button>
+      <button class="placebtn ${placing?"busy":""}" ${placeDisabled?"disabled":""} onclick="placeBets()">${placing?"Placing…":"Place bet · "+fmt(pt.stake)+" USDT"}</button>
       <div class="slip-msg${slipMsg?" slip-"+slipMsg.kind+" show":""}">${slipMsgInnerHTML()}</div>
       <div class="singles-note">Singles only · Decimal odds · Stakes in USDT · Demo data — no real money</div>
     </div>
@@ -3309,6 +3530,7 @@ function renderSlip(){
     if(ni){ ni.focus(); try{ ni.setSelectionRange(focusCtx.pos, focusCtx.pos); }catch(e){} }
   }
   stampVersion();
+  saveSlip(); // Round 12 (item J3): the slip persists like the rest of the state.
 }
 /* Round 10 (item 7) — the sidebar's "My bets" shows the 5 LATEST bets,
    open AND settled, newest first. The old code showed the 5 latest OPEN
@@ -3450,7 +3672,10 @@ function startedInfo(m){
   const as = evts.filter(e => e.team === "away").length;
   const scorers = evts.map(e => ({p: e.scorer, min: e.min, half: e.min <= 45 ? 1 : 2}));
   // Round 10 (item 9): corners/cards from the same hash schedule the live
-  // engine uses, so a started match's Match stats row shows real counts.
+  // engine uses, so a started match's derived state carries real counts.
+  // They feed the market gate (First corner) and settlement (Total
+  // corners/cards) — not a stats row: Round 11 P0 removed the Match stats
+  // row, and refreshClocks no longer queries those counts.
   let corners = 0, cards = 0;
   for(let k = 1; k <= min; k++){
     if(hash01(m.id + "|corner|" + k) < 0.13) corners++;
@@ -3476,7 +3701,11 @@ function isDerivedFinished(m){
 function isEnded(m){ return isFT(m) || isFinished(m) || isDerivedFinished(m); }
 /* Round 10 (item 9) — the Match stats counts for ANY soccer match page:
    a started match derives them from its hash schedule (the same counts
-   the live engine produces), a live/FT match uses its stored counts. */
+   the live engine produces), a live/FT match uses its stored counts.
+   Round 11 (P0) removed the stats row that rendered them, and Round 12
+   (K1) removed the refreshClocks queries that wrote them — but the
+   helpers stay: the derived counts are what the market gate and the
+   settlement read (via startedInfo), and the R10 probe checks them. */
 function matchCorners(m){ if(isStarted(m)) return startedInfo(m).corners; return m.corners||0; }
 function matchCards(m){ if(isStarted(m)) return startedInfo(m).cards; return m.cards||0; }
 /* Round 11 (item 11): ONE grouping rule for every list — a match is Live
@@ -4032,6 +4261,7 @@ $("#topSearch").addEventListener("input", e=>{
     setSearchQ(v, e.target);
   }
 });
+loadSlip(); // Round 12 (item J3): restore the slip before the first render.
 render();
 </script>
 </body>
