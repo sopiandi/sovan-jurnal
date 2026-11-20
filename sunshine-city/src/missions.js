@@ -1,66 +1,131 @@
-// Sunshine City — story and missions. All names, people and places are
-// invented for this game. Kai Reyes arrives in Sunshine City with nothing
-// but a duffel bag; Mara Solano, a fixer who runs jobs out of Coral Market,
-// gives him work; Vic Delgado's crew owns the docks and wants him gone.
-import { PLACES, RACE_CHECKPOINTS } from './city.js';
-
-export const STORY_INTRO = 'Kai Reyes came to Sunshine City with $40 and a duffel bag. Mara Solano has jobs. Vic Delgado has the docks. The city has room for one more king.';
+// Sunshine City — the five story missions of Kai Reyes, plus the
+// mission banner target logic. Written fresh in this session (v3).
+import { dist } from "./config.js";
+import { addWanted } from "./world.js";
 
 export const MISSIONS = [
   {
-    id: 'first-wheels',
-    title: '1 — First Wheels',
-    brief: 'Mara needs wheels. Take any parked car and bring it to Marina Bay. Nobody will miss it.',
-    objective: 'Steal a car and drive to Marina Bay',
-    type: 'steal',
-    target: PLACES.marina,
+    name: "Mission 1 — Hot Wheels",
     reward: 200,
-    timeLimit: 0,
+    stages: [
+      { text: "Steal a car", target: { x: 980, y: 1180 }, hint: "The red car west of the clinic is unlocked. Press E near it." },
+      { text: "Drive to Marina Bay", target: { x: 700, y: 1880 }, hint: "Follow the yellow arrow to the marina." },
+    ],
   },
   {
-    id: 'sunset-sprint',
-    title: '2 — Sunset Sprint',
-    brief: 'A street race across the city. Hit every checkpoint before the clock runs out. Win and the whole city hears your name.',
-    objective: 'Race through all 5 checkpoints',
-    type: 'race',
-    checkpoints: RACE_CHECKPOINTS,
+    name: "Mission 2 — Bay City Sprint",
     reward: 400,
-    timeLimit: 100,
+    stages: [
+      { text: "Race: checkpoint 1 of 3", target: { x: 1900, y: 700 } },
+      { text: "Race: checkpoint 2 of 3", target: { x: 2300, y: 1900 } },
+      { text: "Race: checkpoint 3 of 3", target: { x: 700, y: 300 } },
+    ],
   },
   {
-    id: 'payback-run',
-    title: '3 — Payback Run',
-    brief: 'Pick up Mara\'s package at Coral Market and deliver it to the Marina drop. Fast and quiet — or fast and loud.',
-    objective: 'Collect the package, then deliver it',
-    type: 'deliver',
-    pickup: PLACES.marketPickup,
-    target: PLACES.marketDrop,
+    name: "Mission 3 — Parcel Run",
     reward: 500,
-    timeLimit: 0,
+    stages: [
+      { text: "Pick up the parcel at the docks", target: { x: 2150, y: 1650 } },
+      { text: "Deliver the parcel to Marina Bay", target: { x: 500, y: 1900 } },
+    ],
   },
   {
-    id: 'heat-wave',
-    title: '4 — Heat Wave',
-    brief: 'Vic tipped off the police. Three stars, a whole precinct on your tail. Survive 35 seconds — then disappear.',
-    objective: 'Survive the police chase for 35 seconds',
-    type: 'escape',
-    target: PLACES.hideout,
+    name: "Mission 4 — Heat Escape",
     reward: 600,
-    timeLimit: 35,
+    stages: [
+      { text: "Lose the heat — reach the hideout", target: { x: 400, y: 400 } },
+    ],
   },
   {
-    id: 'king-of-sunshine',
-    title: '5 — King of Sunshine',
-    brief: 'Vic\'s crew is waiting at the Old Docks. End it. Then take the Palm Tower and the city is yours.',
-    objective: 'Clear the docks, then reach Palm Tower',
-    type: 'shootout',
-    target: PLACES.docks,
-    finalTarget: PLACES.penthouse,
-    enemies: 6,
+    name: "Mission 5 — Dockside Showdown",
     reward: 1000,
-    timeLimit: 0,
+    stages: [
+      { text: "Get to the Old Docks", target: { x: 2100, y: 1800 } },
+      { text: "Take down the dock crew", target: { x: 2100, y: 1800 } },
+    ],
   },
 ];
 
-export const MISSION_COMPLETE_TEXT = 'Mission complete. Mara is impressed — and the city is watching.';
-export const WIN_TEXT = 'KING OF SUNSHINE CITY — Kai Reyes owns the town now. Thanks for playing.';
+export function missionTarget(S) {
+  if (S.missionIndex >= MISSIONS.length) return null;
+  const m = MISSIONS[S.missionIndex];
+  const st = m.stages[Math.min(S.stage, m.stages.length - 1)];
+  return st.target;
+}
+export function missionText(S) {
+  if (S.missionIndex >= MISSIONS.length) return "Free roam — Sunshine City is yours";
+  const m = MISSIONS[S.missionIndex];
+  const st = m.stages[Math.min(S.stage, m.stages.length - 1)];
+  return m.name + " · " + st.text;
+}
+
+// Called when a mission stage begins (e.g. spawning foes, setting wanted).
+export function enterStage(S, sound) {
+  if (S.missionIndex === 3 && S.stage === 0) {
+    // Mission 4: the heat is on the moment it starts.
+    addWanted(S, 3, "The cops are onto you — run!", sound);
+  }
+  if (S.missionIndex === 4 && S.stage === 1) {
+    // Mission 5: five armed foes hold the dockyard.
+    const spots = [
+      { x: 2050, y: 1750 }, { x: 2160, y: 1740 }, { x: 2100, y: 1860 },
+      { x: 2200, y: 1830 }, { x: 2030, y: 1850 },
+    ];
+    for (const s of spots) {
+      S.peds.push({
+        x: s.x, y: s.y, angle: 0, speed: 0, tx: s.x, ty: s.y, pause: 0,
+        panic: 0, down: 0, dead: false, foe: true, hp: 2, color: "#8a2f2f",
+        hitCd: 0, shootCd: 1,
+      });
+    }
+    S.foesLeft = 5;
+    S.msg = { text: "Dock crew: 5 left", sub: "Take them all down", t: 0 };
+  }
+}
+
+function completeMission(S, sound) {
+  const m = MISSIONS[S.missionIndex];
+  S.money += m.reward;
+  S.msg = { text: m.name + " complete!", sub: "+$" + m.reward, t: 0 };
+  if (sound) sound.cash();
+  if (S.missionIndex === 3) {
+    // Escaped: the heat dies down once the hideout is reached.
+    S.wanted = 0;
+    S.lastCrime = S.time;
+  }
+  S.missionIndex++;
+  S.stage = 0;
+  if (S.missionIndex >= MISSIONS.length) {
+    S.msg = { text: "STORY COMPLETE", sub: "Sunshine City is yours, Kai. Free roam!", t: 0 };
+  } else {
+    enterStage(S, sound);
+  }
+}
+
+export function updateMissions(S, sound) {
+  if (S.missionIndex >= MISSIONS.length) return;
+  const m = MISSIONS[S.missionIndex];
+  const st = m.stages[S.stage];
+  const p = S.player;
+  if (S.missionIndex === 0 && S.stage === 0) {
+    // Stage 0 completes the moment Kai is behind a wheel.
+    if (S.inCar) { S.stage = 1; if (sound) sound.pickup(); }
+    return;
+  }
+  if (S.missionIndex === 4 && S.stage === 1) {
+    // Stage 1 completes when the last foe falls.
+    if (S.foesLeft <= 0) completeMission(S, sound);
+    return;
+  }
+  const d = dist(p.x, p.y, st.target.x, st.target.y);
+  const radius = S.missionIndex === 1 ? 95 : 100;
+  if (d < radius) {
+    if (S.stage + 1 < m.stages.length) {
+      S.stage++;
+      if (sound) sound.pickup();
+      if (S.missionIndex === 4 && S.stage === 1) enterStage(S, sound);
+    } else {
+      completeMission(S, sound);
+    }
+  }
+}
